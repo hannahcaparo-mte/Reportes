@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reporte de campaña</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+  :root{
+    --bg:#F7F7F5; --surface:#FFFFFF; --surface-2:#F0F0EE;
+    --border:#E3E2DD; --text:#1F1E1B; --text-2:#6B6A64; --text-3:#9B9A93;
+    --accent:#185FA5; --accent-bg:#E6F1FB;
+    --danger:#A32D2D; --danger-bg:#FCEBEB;
+    --warning:#854F0B; --warning-bg:#FAEEDA;
+    --success:#27500A; --success-bg:#EAF3DE;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#171715; --surface:#201F1C; --surface-2:#2A2924;
+      --border:#3A3934; --text:#EDECE6; --text-2:#B3B2AB; --text-3:#84837B;
+      --accent:#85B7EB; --accent-bg:#042C53;
+      --danger:#F09595; --danger-bg:#501313;
+      --warning:#EF9F27; --warning-bg:#412402;
+      --success:#97C459; --success-bg:#173404;
+    }
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:Arial,Helvetica,sans-serif;padding:24px;}
+  .wrap{max-width:920px;margin:0 auto;}
+
+  .toolbar{display:flex;flex-direction:column;gap:10px;margin-bottom:20px;padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:10px;}
+  .toolbar-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+  .toolbar label{font-size:13px;color:var(--text-2);}
+  .toolbar input[type=text]{font-size:13px;padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);flex:1;min-width:220px;}
+  select, button{font-size:13px;padding:6px 12px;border-radius:6px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);cursor:pointer;}
+  button:hover{background:var(--border);}
+  .status{font-size:12px;color:var(--text-3);}
+
+  #dashboard{display:none;}
+  #dashboard.show{display:block;}
+  #empty{padding:40px 20px;text-align:center;color:var(--text-3);font-size:13px;border:1px dashed var(--border);border-radius:10px;}
+
+  .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;}
+  .header .name{font-size:18px;font-weight:bold;}
+  .header .dates{font-size:13px;color:var(--text-2);margin-top:2px;}
+  .pill{font-size:11px;padding:5px 12px;border-radius:6px;background:var(--accent-bg);color:var(--accent);white-space:nowrap;}
+  .pill.warn{background:var(--warning-bg);color:var(--warning);}
+
+  .row{display:grid;gap:10px;margin-bottom:10px;}
+  .row-3{grid-template-columns:repeat(3,minmax(0,1fr));}
+  .row-4{grid-template-columns:repeat(4,minmax(0,1fr));}
+
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;}
+  .card.tint-success{background:var(--success-bg);border-color:transparent;}
+  .card.tint-warning{background:var(--warning-bg);border-color:transparent;}
+  .card .label{font-size:11px;color:var(--text-2);margin-bottom:6px;}
+  .card.tint-success .label{color:var(--success);}
+  .card.tint-warning .label{color:var(--warning);}
+  .card .value{font-size:18px;font-weight:bold;}
+  .card.tint-success .value{color:var(--success);}
+  .card.tint-warning .value{color:var(--warning);}
+
+  .section-title{font-size:14px;font-weight:bold;margin:24px 0 10px;}
+
+  .com-row{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 18px;margin-bottom:10px;}
+  .com-grid{display:grid;grid-template-columns:110px 1fr 1px 1fr 90px;align-items:center;gap:20px;}
+  .com-name{font-weight:bold;font-size:15px;}
+  .com-sub{font-size:11px;color:var(--text-2);margin-bottom:4px;}
+  .com-main{font-size:15px;font-weight:bold;margin-bottom:6px;}
+  .com-main .pct{font-size:12px;font-weight:normal;}
+  .bar-track{width:100%;height:6px;background:var(--surface-2);border-radius:3px;overflow:hidden;}
+  .bar-fill{height:100%;}
+  .divider{height:36px;background:var(--border);}
+  .stats{display:flex;gap:18px;font-size:12px;}
+  .stats div span{display:block;}
+  .stats .stat-label{color:var(--text-2);}
+  .stats .stat-value{font-size:14px;font-weight:bold;margin-top:2px;}
+  .close-rate{text-align:right;}
+  .close-rate .label{font-size:11px;color:var(--text-2);margin-bottom:4px;}
+  .close-rate .value{font-size:16px;font-weight:bold;}
+
+  @media (max-width:640px){
+    .row-3,.row-4{grid-template-columns:repeat(2,minmax(0,1fr));}
+    .com-grid{grid-template-columns:1fr;gap:10px;}
+    .divider{display:none;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="toolbar">
+    <div class="toolbar-row">
+      <select id="campana" disabled><option>—</option></select>
+      <button onclick="refreshSheets()" id="btnRefresh">Actualizar ahora</button>
+      <span class="status" id="status">Conectando con Google Sheets…</span>
+    </div>
+  </div>
+
+  <div id="empty">Aún no hay datos cargados. Tu Google Sheet debe tener dos pestañas: <b>Campañas</b> y <b>Comerciales</b> (ver estructura de columnas más abajo).</div>
+
+  <div id="dashboard">
+
+    <div class="header">
+      <div>
+        <div class="name" id="h-nombre">—</div>
+        <div class="dates" id="h-fechas">—</div>
+      </div>
+      <div class="pill" id="h-dias">—</div>
+    </div>
+
+    <div class="row row-3">
+      <div class="card"><div class="label">Invertido</div><div class="value" id="k-invertido">—</div></div>
+      <div class="card"><div class="label">Gastado</div><div class="value" id="k-gastado">—</div></div>
+      <div class="card tint-success"><div class="label">Sobra</div><div class="value" id="k-sobra">—</div></div>
+    </div>
+
+    <div class="row row-4">
+      <div class="card"><div class="label">Leads meta</div><div class="value" id="k-leadsmeta">—</div></div>
+      <div class="card"><div class="label">Leads kommo</div><div class="value" id="k-leadskommo">—</div></div>
+      <div class="card"><div class="label">Diferencia</div><div class="value" id="k-diferencia">—</div></div>
+      <div class="card tint-warning"><div class="label">% que se pierde</div><div class="value" id="k-pctperdida">—</div></div>
+    </div>
+
+    <div class="row row-3">
+      <div class="card"><div class="label">CPR</div><div class="value" id="k-cpr">—</div></div>
+      <div class="card"><div class="label">Inscritos</div><div class="value" id="k-inscritos">—</div></div>
+      <div class="card"><div class="label">CPA</div><div class="value" id="k-cpa">—</div></div>
+    </div>
+
+    <div class="section-title">Desempeño por comercial</div>
+    <div id="comerciales-list"></div>
+
+  </div>
+
+</div>
+
+<script>
+let campanas = [];
+let comerciales = [];
+let autoRefreshTimer = null;
+const AUTO_REFRESH_SECONDS = 60; // cambia este número si quieres otro intervalo
+
+// ==== PEGA AQUÍ LA URL (O EL ID) DE TU GOOGLE SHEET ====
+const SHEET_URL = "https://docs.google.com/spreadsheets/d/TU_ID_AQUI/edit";
+// ========================================================
+
+const SHEET_ID = extractSheetId(SHEET_URL);
+
+document.getElementById('campana').addEventListener('change', e => render(e.target.value));
+
+// ---------- Fuente: Google Sheets ----------
+function extractSheetId(input){
+  const m = input.match(/\/d\/([a-zA-Z0-9-_]+)/);
+  return m ? m[1] : input.trim();
+}
+
+function csvUrl(sheetId, tabName){
+  return `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tabName)}`;
+}
+
+async function fetchTab(sheetId, tabName){
+  const res = await fetch(csvUrl(sheetId, tabName));
+  if(!res.ok) throw new Error('No se pudo leer la pestaña "' + tabName + '" (revisa que exista y que la hoja esté compartida como "Cualquiera con el enlace: lector").');
+  const text = await res.text();
+  const parsed = Papa.parse(text, {header:true, dynamicTyping:true, skipEmptyLines:true});
+  return parsed.data;
+}
+
+async function refreshSheets(){
+  try{
+    setStatus('Actualizando desde Google Sheets…');
+    const [c1, c2] = await Promise.all([
+      fetchTab(SHEET_ID, 'Campañas'),
+      fetchTab(SHEET_ID, 'Comerciales')
+    ]);
+    campanas = c1;
+    comerciales = c2;
+    populateCampanaSelect();
+    setStatus('Conectado. Última actualización: ' + new Date().toLocaleTimeString('es-PE'));
+  }catch(err){
+    setStatus(err.message, true);
+  }
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  refreshSheets();
+  autoRefreshTimer = setInterval(refreshSheets, AUTO_REFRESH_SECONDS * 1000);
+});
+
+// ---------- Común ----------
+function populateCampanaSelect(){
+  const sel = document.getElementById('campana');
+  const previous = sel.value;
+  sel.innerHTML = '';
+  campanas.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c['Campaña'];
+    opt.textContent = c['Campaña'];
+    sel.appendChild(opt);
+  });
+  sel.disabled = campanas.length === 0;
+  const toSelect = campanas.find(c => c['Campaña'] === previous) ? previous : (campanas[0] ? campanas[0]['Campaña'] : null);
+  if(toSelect) sel.value = toSelect;
+  render(toSelect);
+}
+
+function setStatus(msg, isError){
+  const s = document.getElementById('status');
+  s.textContent = msg;
+  s.style.color = isError ? 'var(--danger)' : 'var(--text-3)';
+}
+
+function money(n){
+  if(n===null || n===undefined || isNaN(n)) return '—';
+  return 'S/ ' + Number(n).toLocaleString('es-PE', {maximumFractionDigits:2});
+}
+function num(n){
+  if(n===null || n===undefined || isNaN(n)) return '—';
+  return Number(n).toLocaleString('es-PE');
+}
+function pct(n){
+  if(n===null || n===undefined || isNaN(n)) return '—';
+  return Math.round(n*100) + '%';
+}
+
+function render(nombreCampana){
+  const camp = campanas.find(c => c['Campaña'] === nombreCampana);
+  if(!camp){
+    document.getElementById('dashboard').classList.remove('show');
+    document.getElementById('empty').style.display = 'block';
+    return;
+  }
+  document.getElementById('empty').style.display = 'none';
+  document.getElementById('dashboard').classList.add('show');
+
+  const invertido = Number(camp['Monto invertido']) || 0;
+  const gastado = Number(camp['Monto gastado']) || 0;
+  const sobra = invertido - gastado;
+  const leadsMeta = Number(camp['Leads plataforma']) || 0;
+  const leadsKommo = Number(camp['Leads kommo']) || 0;
+  const leadsPerdidos = Number(camp['Leads perdidos']) || 0;
+  const inscritos = Number(camp['Inscritos']) || 0;
+  const diferencia = leadsMeta - leadsKommo;
+  const pctPerdida = leadsKommo ? (leadsPerdidos / leadsKommo) : null;
+  const cpr = leadsMeta ? (gastado / leadsMeta) : null;
+  const cpa = inscritos ? (gastado / inscritos) : null;
+
+  const fechaFinRaw = camp['Fecha fin'];
+  const fechaFin = fechaFinRaw ? new Date(fechaFinRaw) : null;
+  let diasTexto = '—';
+  if(fechaFin && !isNaN(fechaFin)){
+    const hoy = new Date();
+    const diffDias = Math.ceil((fechaFin - hoy) / (1000*60*60*24));
+    diasTexto = diffDias >= 0 ? ('Faltan ' + diffDias + ' días') : ('Terminó hace ' + Math.abs(diffDias) + ' días');
+  }
+  const pillEl = document.getElementById('h-dias');
+  pillEl.textContent = diasTexto;
+  pillEl.className = 'pill' + (fechaFin && fechaFin < new Date() ? ' warn' : '');
+
+  document.getElementById('h-nombre').textContent = camp['Campaña'] || '—';
+  const fechaInicioRaw = camp['Fecha inicio'];
+  const fi = fechaInicioRaw ? new Date(fechaInicioRaw).toLocaleDateString('es-PE') : '—';
+  const ff = (fechaFin && !isNaN(fechaFin)) ? fechaFin.toLocaleDateString('es-PE') : '—';
+  document.getElementById('h-fechas').textContent = fi + ' – ' + ff;
+
+  document.getElementById('k-invertido').textContent = money(invertido);
+  document.getElementById('k-gastado').textContent = money(gastado);
+  document.getElementById('k-sobra').textContent = money(sobra);
+
+  document.getElementById('k-leadsmeta').textContent = num(leadsMeta);
+  document.getElementById('k-leadskommo').textContent = num(leadsKommo);
+  document.getElementById('k-diferencia').textContent = num(diferencia);
+  document.getElementById('k-pctperdida').textContent = pct(pctPerdida);
+
+  document.getElementById('k-cpr').textContent = cpr !== null ? money(cpr) : '—';
+  document.getElementById('k-inscritos').textContent = num(inscritos);
+  document.getElementById('k-cpa').textContent = cpa !== null ? money(cpa) : '—';
+
+  const list = comerciales.filter(c => c['Campaña'] === nombreCampana);
+  const container = document.getElementById('comerciales-list');
+  container.innerHTML = '';
+
+  list.forEach(c => {
+    const target = Number(c['Target individual']) || 0;
+    const insc = Number(c['Inscritos']) || 0;
+    const leads = Number(c['Leads']) || 0;
+    const tibios = c['Tibios'];
+    const calientes = c['Calientes'];
+    const porPagar = c['Por pagar'];
+    const avance = target ? (insc/target) : null;
+    const tasaCierre = leads ? (insc/leads) : null;
+
+    let barColor = 'var(--danger)';
+    if(avance !== null){
+      if(avance >= 0.7) barColor = 'var(--success)';
+      else if(avance >= 0.4) barColor = 'var(--warning)';
+    }
+
+    const row = document.createElement('div');
+    row.className = 'com-row';
+    row.innerHTML = `
+      <div class="com-grid">
+        <div class="com-name">${c['Comercial'] || '—'}</div>
+        <div>
+          <div class="com-sub">Inscritos sobre meta</div>
+          <div class="com-main">${num(insc)} / ${num(target)} <span class="pct">· ${pct(avance)}</span></div>
+          <div class="bar-track"><div class="bar-fill" style="width:${avance!==null?Math.round(avance*100):0}%;background:${barColor};"></div></div>
+        </div>
+        <div class="divider"></div>
+        <div>
+          <div class="com-sub">Leads: ${num(leads)}</div>
+          <div class="stats">
+            <div><span class="stat-label">Tibios</span><span class="stat-value">${tibios ?? '—'}</span></div>
+            <div><span class="stat-label">Calientes</span><span class="stat-value">${calientes ?? '—'}</span></div>
+            <div><span class="stat-label">Por pagar</span><span class="stat-value">${porPagar ?? '—'}</span></div>
+          </div>
+        </div>
+        <div class="close-rate">
+          <div class="label">Tasa cierre</div>
+          <div class="value">${pct(tasaCierre)}</div>
+        </div>
+      </div>`;
+    container.appendChild(row);
+  });
+}
+</script>
+</body>
+</html>
