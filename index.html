@@ -234,7 +234,7 @@ function render(nombreCampana){
   document.getElementById('empty').style.display = 'none';
   document.getElementById('dashboard').classList.add('show');
 
-  const invertido = Number(camp['Monto invertido']) || 0;
+  const invertido = Number(camp['Monto a invertir']) || 0;
   const gastado = Number(camp['Monto gastado']) || 0;
   const sobra = invertido - gastado;
   const leadsMeta = Number(camp['Leads plataforma']) || 0;
