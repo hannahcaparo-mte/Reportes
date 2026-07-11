@@ -122,10 +122,11 @@
       <div class="card tint-warning"><div class="label">% que se pierde</div><div class="value" id="k-pctperdida">—</div></div>
     </div>
 
-    <div class="row row-3">
+    <div class="row row-4">
       <div class="card"><div class="label">CPR</div><div class="value" id="k-cpr">—</div></div>
       <div class="card"><div class="label">Inscritos</div><div class="value" id="k-inscritos">—</div></div>
       <div class="card"><div class="label">CPA</div><div class="value" id="k-cpa">—</div></div>
+      <div class="card"><div class="label">Tasa de cierre</div><div class="value" id="k-tasacierre">—</div></div>
     </div>
 
     <div class="section-title">Desempeño por comercial</div>
@@ -224,6 +225,28 @@ function pct(n){
   return Math.round(n*100) + '%';
 }
 
+// Acepta AAAA-MM-DD, DD/MM/AAAA, MM/DD/AAAA, y también años de 2 dígitos (ej. 25/5/26)
+function parseFecha(raw){
+  if(!raw) return null;
+  if(raw instanceof Date) return isNaN(raw) ? null : raw;
+  const s = String(raw).trim();
+
+  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if(m) return new Date(+m[1], +m[2]-1, +m[3]);
+
+  m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if(m){
+    let a = +m[1], b = +m[2], y = +m[3];
+    if(y < 100) y += 2000;               // año corto -> 20XX
+    if(a > 12) return new Date(y, b-1, a);       // DD/MM/AAAA
+    if(b > 12) return new Date(y, a-1, b);       // MM/DD/AAAA
+    return new Date(y, b-1, a);                  // ambiguo: asume DD/MM (formato PE)
+  }
+
+  const d = new Date(s);
+  return isNaN(d) ? null : d;
+}
+
 function render(nombreCampana){
   const camp = campanas.find(c => c['Campaña'] === nombreCampana);
   if(!camp){
@@ -245,9 +268,10 @@ function render(nombreCampana){
   const pctPerdida = leadsKommo ? (leadsPerdidos / leadsKommo) : null;
   const cpr = leadsMeta ? (gastado / leadsMeta) : null;
   const cpa = inscritos ? (gastado / inscritos) : null;
+  const tasaCierreGeneral = leadsMeta ? (inscritos / leadsMeta) : null;
 
   const fechaFinRaw = camp['Fecha fin'];
-  const fechaFin = fechaFinRaw ? new Date(fechaFinRaw) : null;
+  const fechaFin = parseFecha(fechaFinRaw);
   let diasTexto = '—';
   if(fechaFin && !isNaN(fechaFin)){
     const hoy = new Date();
@@ -260,7 +284,8 @@ function render(nombreCampana){
 
   document.getElementById('h-nombre').textContent = camp['Campaña'] || '—';
   const fechaInicioRaw = camp['Fecha inicio'];
-  const fi = fechaInicioRaw ? new Date(fechaInicioRaw).toLocaleDateString('es-PE') : '—';
+  const fechaInicio = parseFecha(fechaInicioRaw);
+  const fi = fechaInicio ? fechaInicio.toLocaleDateString('es-PE') : '—';
   const ff = (fechaFin && !isNaN(fechaFin)) ? fechaFin.toLocaleDateString('es-PE') : '—';
   document.getElementById('h-fechas').textContent = fi + ' – ' + ff;
 
@@ -276,6 +301,7 @@ function render(nombreCampana){
   document.getElementById('k-cpr').textContent = cpr !== null ? money(cpr) : '—';
   document.getElementById('k-inscritos').textContent = num(inscritos);
   document.getElementById('k-cpa').textContent = cpa !== null ? money(cpa) : '—';
+  document.getElementById('k-tasacierre').textContent = pct(tasaCierreGeneral);
 
   const list = comerciales.filter(c => c['Campaña'] === nombreCampana);
   const container = document.getElementById('comerciales-list');
@@ -284,7 +310,7 @@ function render(nombreCampana){
   list.forEach(c => {
     const target = Number(c['Target individual']) || 0;
     const insc = Number(c['Inscritos']) || 0;
-    const leads = Number(c['Leads kommo']) || 0;
+    const leads = Number(c['Leads']) || 0;
     const tibios = c['Tibios'];
     const calientes = c['Calientes'];
     const porPagar = c['Por pagar'];
