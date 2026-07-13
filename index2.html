@@ -6,8 +6,26 @@
 <title>Panel de llamadas · GAC / GTD Julio</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<script>
+  // Respaldo por si jsdelivr no carga: intenta cdnjs como segunda opción.
+  window.addEventListener('DOMContentLoaded', function(){
+    function loadScriptIfMissing(check, url, cb){
+      if(check()){ cb(); return; }
+      var s = document.createElement('script');
+      s.src = url;
+      s.onload = cb;
+      s.onerror = cb;
+      document.head.appendChild(s);
+    }
+    loadScriptIfMissing(()=>window.Chart, 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js', function(){
+      loadScriptIfMissing(()=>window.Papa, 'https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js', function(){
+        window.dispatchEvent(new Event('libsready'));
+      });
+    });
+  });
+</script>
 <style>
   :root{
     --bg:#0F1419;
@@ -969,7 +987,21 @@ setupUpload('dropActual','fileActual','filesActual','actual');
 setupUpload('dropHistorico','fileHistorico','filesHistorico','historico');
 
 renderStatusBar();
-loadAll();
+
+function boot(){
+  if(typeof Chart === 'undefined' || typeof Papa === 'undefined'){
+    document.getElementById('statusBar').insertAdjacentHTML('beforeend',
+      '<div class="status-chip fail"><span class="led"></span>No se pudieron cargar las librerías (Chart.js/PapaParse). Revisa tu conexión o un bloqueador de scripts.</div>');
+    return;
+  }
+  loadAll();
+}
+if(typeof Chart !== 'undefined' && typeof Papa !== 'undefined'){
+  boot();
+} else {
+  window.addEventListener('libsready', boot, {once:true});
+  setTimeout(()=>{ if(typeof Chart !== 'undefined' && typeof Papa !== 'undefined') boot(); }, 3000);
+}
 </script>
 </body>
 </html>
