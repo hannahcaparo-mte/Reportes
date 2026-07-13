@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
   // Respaldo por si jsdelivr no carga: intenta cdnjs como segunda opción.
   window.addEventListener('DOMContentLoaded', function(){
@@ -21,7 +22,9 @@
     }
     loadScriptIfMissing(()=>window.Chart, 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js', function(){
       loadScriptIfMissing(()=>window.Papa, 'https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js', function(){
-        window.dispatchEvent(new Event('libsready'));
+        loadScriptIfMissing(()=>window.XLSX, 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', function(){
+          window.dispatchEvent(new Event('libsready'));
+        });
       });
     });
   });
@@ -105,6 +108,19 @@
     cursor:pointer; font-weight:600;
   }
   button.retry:hover{background:var(--caliente); color:#fff;}
+
+  /* ---------- filter bar ---------- */
+  .filter-bar{
+    position:sticky; top:0; z-index:50;
+    background:rgba(15,20,25,0.92); backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--border);
+    padding:12px 0;
+  }
+  .filter-bar-inner{display:flex; flex-wrap:wrap; gap:20px; align-items:center;}
+  .filter-group{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+  .filter-label{font-family:var(--font-mono); font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-faint);}
+  .filter-bar .toggle-group button.active{background:var(--frio);}
+  .filter-bar #filterPeriodo button.active{background:var(--caliente);}
 
   /* ---------- sections ---------- */
   section{padding:42px 0;}
@@ -210,8 +226,8 @@
   }
   .upload-zone:hover{border-color:var(--caliente); color:var(--text);}
   .upload-zone input{display:none;}
-  .file-row{display:flex; justify-content:space-between; align-items:center; font-size:12px; padding:8px 0; border-bottom:1px solid var(--border); gap:10px;}
-  .file-row select{background:var(--surface-2); color:var(--text); border:1px solid var(--border); border-radius:6px; padding:4px 6px; font-size:11.5px; font-family:var(--font-mono);}
+  .file-row{display:flex; font-size:12px; padding:10px 0; border-bottom:1px solid var(--border); gap:6px;}
+  .file-row select{background:var(--surface-2); color:var(--text); border:1px solid var(--border); border-radius:6px; padding:4px 6px; font-size:11.5px; font-family:var(--font-mono); margin-left:8px;}
 
   footer{text-align:center; color:var(--text-faint); font-size:12px; padding:40px 0 10px; font-family:var(--font-mono);}
   .note{font-size:12px; color:var(--text-faint); margin-top:10px; line-height:1.6;}
@@ -224,10 +240,32 @@
   <div class="wrap">
     <div class="eyebrow"><span class="dot"></span>Panel de campañas de admisión</div>
     <h1>Comparativa de llamadas: GAC Julio vs GTD Julio</h1>
-    <p class="sub">Datos en vivo desde las hojas de cálculo de comerciales (Natalia, Ángela, Nirvana, Rosemary) — periodo activo Jun–Jul 2026 comparado contra el histórico desde diciembre 2025.</p>
-    <div class="status-bar" id="statusBar"></div>
+    <p class="sub">Datos cargados manualmente desde las hojas de cálculo de comerciales (Natalia, Ángela, Nirvana, Rosemary) — periodo activo Jun–Jul 2026 comparado contra el histórico desde diciembre 2025.</p>
   </div>
 </header>
+
+<div class="filter-bar">
+  <div class="wrap filter-bar-inner">
+    <div class="filter-group">
+      <span class="filter-label">Periodo</span>
+      <div class="toggle-group" id="filterPeriodo">
+        <button data-val="campana" class="active">Campaña GAC (May–Jul)</button>
+        <button data-val="historico">Histórico (antes de mayo)</button>
+        <button data-val="all">Todo</button>
+      </div>
+    </div>
+    <div class="filter-group">
+      <span class="filter-label">Comercial</span>
+      <div class="toggle-group" id="filterComercial">
+        <button data-val="TODOS" class="active">Todas</button>
+        <button data-val="NATALIA">Natalia</button>
+        <button data-val="ANGELA">Ángela</button>
+        <button data-val="NIRVANA">Nirvana</button>
+        <button data-val="ROSEMARY">Rosemary</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <main class="wrap">
 
@@ -243,12 +281,8 @@
   <!-- 2. KPI STRIP -->
   <section class="tight">
     <div class="section-head">
-      <div><span class="num">02</span><h2 style="display:inline">Indicadores generales</h2></div>
-      <div class="toggle-group" data-toggle="kpi">
-        <button data-val="actual" class="active">Jun–Jul 2026</button>
-        <button data-val="historico">Histórico</button>
-        <button data-val="all">Todo</button>
-      </div>
+      <div><span class="num">02</span><h2 style="display:inline">Indicadores generales</h2>
+        <p id="kpiFilterLabel" style="font-family:var(--font-mono); font-size:12px; color:var(--text-faint);"></p></div>
     </div>
     <div class="kpi-strip" id="kpiStrip"></div>
   </section>
@@ -272,7 +306,7 @@
   <section>
     <div class="section-head">
       <div><span class="num">04</span><h2 style="display:inline">Desempeño por comercial</h2>
-        <p>Volumen de llamadas, tasa de contestación y tasa de conversación por cada comercial.</p></div>
+        <p>Volumen de llamadas, tasa de contestación y tasa de conversación por cada comercial. Esta comparación siempre muestra a las 4 (respeta el filtro de periodo, no el de comercial) para ver de un vistazo si el problema es puntual de alguien.</p></div>
     </div>
     <div class="panel chart-tall"><canvas id="chartComercial"></canvas></div>
   </section>
@@ -330,33 +364,34 @@
   <section>
     <div class="section-head">
       <div><span class="num">09</span><h2 style="display:inline">Tendencia mensual (histórico vs actual)</h2>
-        <p>Volumen de llamadas y % de conversación mes a mes, desde diciembre 2025.</p></div>
+        <p>Volumen de llamadas y % de conversación mes a mes, desde diciembre 2025. Siempre muestra todo el rango de fechas (respeta el filtro de comercial, no el de periodo) para ver la evolución completa.</p></div>
     </div>
     <div class="panel chart-tall"><canvas id="chartTendencia"></canvas></div>
   </section>
 
-  <!-- 10. MANUAL UPLOAD FALLBACK -->
+  <!-- 0. CARGA DE DATOS -->
   <section class="tight">
     <div class="section-head">
-      <div><span class="num">10</span><h2 style="display:inline">Carga manual (respaldo)</h2>
-        <p>Si alguna pestaña no cargó automáticamente por permisos, sube aquí el CSV exportado de esa hoja.</p></div>
+      <div><span class="num">00</span><h2 style="display:inline">Cargar datos</h2>
+        <p>Descarga cada hoja de cálculo (Archivo → Descargar → Microsoft Excel .xlsx, o CSV) y súbela aquí. Si subes el Excel completo, se leen automáticamente todas sus pestañas (Natalia, Ángela, Nirvana, Rosemary).</p></div>
     </div>
     <div class="grid-2">
       <div>
-        <div class="upload-zone" id="dropActual">📄 Arrastra o haz clic para subir CSV — Jun–Jul 2026<input type="file" id="fileActual" multiple accept=".csv"></div>
+        <div class="upload-zone" id="dropActual">📄 Arrastra o haz clic — Jun–Jul 2026 (.xlsx o .csv)<input type="file" id="fileActual" multiple accept=".csv,.xlsx,.xls"></div>
         <div id="filesActual"></div>
       </div>
       <div>
-        <div class="upload-zone" id="dropHistorico">📄 Arrastra o haz clic para subir CSV — Histórico Dic 2025+<input type="file" id="fileHistorico" multiple accept=".csv"></div>
+        <div class="upload-zone" id="dropHistorico">📄 Arrastra o haz clic — Histórico Dic 2025+ (.xlsx o .csv)<input type="file" id="fileHistorico" multiple accept=".csv,.xlsx,.xls"></div>
         <div id="filesHistorico"></div>
       </div>
     </div>
-    <p class="note">Tip: en Google Sheets ve a cada pestaña (Natalia, Ángela, Nirvana, Rosemary) y usa Archivo → Descargar → CSV. El nombre del comercial se detecta automáticamente si aparece en el nombre del archivo; si no, podrás asignarlo manualmente.</p>
+    <p class="note">Si subes un .xlsx con varias pestañas, cada pestaña se asigna automáticamente al comercial con ese nombre. Si subes un .csv, se detecta el comercial por el nombre del archivo (puedes corregirlo con el selector).</p>
+    <div class="status-bar" id="statusBar"></div>
   </section>
 
 </main>
 
-<footer>Generado a partir de datos en vivo de Google Sheets · Última actualización: <span id="lastUpdate">—</span></footer>
+<footer>Panel de análisis de campañas · Última carga: <span id="lastUpdate">— sube tus archivos arriba —</span></footer>
 
 <script>
 /* =========================================================
@@ -364,8 +399,8 @@
 ========================================================= */
 const CONFIG = {
   sources: [
-    { id:'actual',     label:'Jun–Jul 2026', sheetId:'1XMPLj2qKxTFquS5Ld1kd42b5t-0-0S-e3FRMnBQOVI', tabs:['NATALIA','ANGELA','NIRVANA','ROSEMARY'] },
-    { id:'historico',  label:'Histórico Dic 2025+', sheetId:'1pSbWV01iDuP5yTj-1IU-ee6u_LVImYDlbthJPl1qOY0', tabs:['NATALIA','ANGELA','ROSEMARY'] }
+    { id:'actual',     label:'Jun–Jul 2026', tabs:['NATALIA','ANGELA','NIRVANA','ROSEMARY'] },
+    { id:'historico',  label:'Histórico Dic 2025+', tabs:['NATALIA','ANGELA','ROSEMARY'] }
   ],
   campaigns: [
     { name:'GAC Julio', start:'2026-05-25', end:'2026-07-17', inscritos:20, meta:57, cls:'gac' },
@@ -384,16 +419,16 @@ Chart.defaults.font.family = "'Inter', sans-serif";
 Chart.defaults.color = COLORS.dim;
 Chart.defaults.borderColor = COLORS.border;
 
-let RECORDS = []; // unified dataset
-const statusState = {}; // key -> 'loading'|'ok'|'fail'
+let RECORDS = []; // dataset unificado
+const statusState = {}; // key -> {state:'ok'|'fail'|'warn', rows, missing:[...]}
 
 /* =========================================================
-   HELPERS
+   HELPERS DE TEXTO / TIPOS
 ========================================================= */
 function stripAccents(s){ return String(s).normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
 
 function findKey(fields, ...kws){
-  const norm = fields.map(f => ({raw:f, n:stripAccents(f).toLowerCase()}));
+  const norm = fields.map(f => ({raw:f, n:stripAccents(String(f)).toLowerCase()}));
   const hit = norm.find(f => kws.every(kw => f.n.includes(kw)));
   return hit ? hit.raw : null;
 }
@@ -405,7 +440,7 @@ function buildColMap(fields){
     contesto:     findKey(fields,'contest'),
     calidad:      findKey(fields,'calidad'),
     conversacion: findKey(fields,'conversac'),
-    llamarLuego:  findKey(fields,'llamar') || findKey(fields,'luego'),
+    llamarLuego:  findKey(fields,'llamar','luego'),
     programa:     findKey(fields,'programa'),
     carrera:      findKey(fields,'carrera'),
     provincia:    findKey(fields,'provincia'),
@@ -413,6 +448,8 @@ function buildColMap(fields){
     nota:         findKey(fields,'nota')
   };
 }
+
+const REQUIRED_COLS = ['numero','fecha','contesto','calidad','conversacion'];
 
 function normBool(v){
   if(v===undefined || v===null) return null;
@@ -434,6 +471,7 @@ function normPhone(v){
 }
 function parseFecha(v){
   if(!v) return null;
+  if(v instanceof Date) return isNaN(v) ? null : v;
   const s = String(v).trim();
   let m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
   if(m){
@@ -460,8 +498,9 @@ function rowsToRecords(rows, fields, periodo, comercial){
   for(const row of rows){
     const numero = map.numero ? normPhone(row[map.numero]) : null;
     const fecha = map.fecha ? parseFecha(row[map.fecha]) : null;
-    const nombreCol = Object.values(row).join('').trim();
-    if(!numero && !fecha && !nombreCol) continue; // fila vacía
+    const anyValue = Object.values(row).some(v => String(v||'').trim() !== '');
+    if(!anyValue) continue; // fila totalmente vacía
+    if(!numero && !fecha) continue; // fila sin número ni fecha, probablemente basura
     out.push({
       periodo, comercial,
       numero,
@@ -477,74 +516,64 @@ function rowsToRecords(rows, fields, periodo, comercial){
       nota: map.nota ? String(row[map.nota]||'').trim() : ''
     });
   }
-  return out;
+  return { records: out, map, fields };
 }
 
-/* =========================================================
-   FETCH FROM GOOGLE SHEETS
-========================================================= */
-function statusKey(sourceId, tab){ return sourceId+'::'+tab; }
+function statusKey(sourceId, comercial){ return sourceId+'::'+comercial; }
+
+function labelMissing(map){
+  const names = {numero:'Número', fecha:'Fecha', contesto:'Contestó', calidad:'Calidad de lead', conversacion:'Hubo conversación'};
+  return REQUIRED_COLS.filter(k=>!map[k]).map(k=>names[k]);
+}
 
 function renderStatusBar(){
   const bar = document.getElementById('statusBar');
+  const keys = Object.keys(statusState);
+  if(keys.length===0){ bar.innerHTML = '<span style="color:var(--text-faint); font-size:12.5px;">Aún no se ha cargado ningún archivo.</span>'; return; }
   bar.innerHTML = '';
-  CONFIG.sources.forEach(src=>{
-    src.tabs.forEach(tab=>{
-      const key = statusKey(src.id, tab);
-      const st = statusState[key] || 'loading';
-      const chip = document.createElement('div');
-      chip.className = 'status-chip ' + st;
-      chip.innerHTML = `<span class="led"></span>${tab} · ${src.id==='actual'?'Jun-Jul':'Hist'}`;
-      bar.appendChild(chip);
-    });
+  keys.forEach(key=>{
+    const st = statusState[key];
+    const [periodo, comercial] = key.split('::');
+    const chip = document.createElement('div');
+    chip.className = 'status-chip ' + (st.missing.length ? 'fail' : 'ok');
+    chip.title = st.missing.length ? `Faltan columnas: ${st.missing.join(', ')}` : 'Todas las columnas clave detectadas';
+    chip.innerHTML = `<span class="led"></span>${comercial} · ${periodo==='actual'?'Jun-Jul':'Hist'} · ${st.rows} filas${st.missing.length ? ' ⚠' : ''}`;
+    bar.appendChild(chip);
   });
-  const retry = document.createElement('button');
-  retry.className = 'retry';
-  retry.textContent = '↻ Reintentar carga';
-  retry.onclick = loadAll;
-  bar.appendChild(retry);
+  const clear = document.createElement('button');
+  clear.className = 'retry';
+  clear.textContent = '🗑 Limpiar datos cargados';
+  clear.onclick = ()=>{
+    RECORDS = [];
+    Object.keys(statusState).forEach(k=>delete statusState[k]);
+    document.getElementById('filesActual').innerHTML = '';
+    document.getElementById('filesHistorico').innerHTML = '';
+    renderStatusBar();
+    renderAll();
+  };
+  bar.appendChild(clear);
 }
 
-async function fetchTab(sheetId, tab){
-  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tab)}`;
-  const res = await fetch(url, {cache:'no-store'});
-  if(!res.ok) throw new Error('HTTP '+res.status);
-  const text = await res.text();
-  if(/^\s*<(!doctype|html)/i.test(text)) throw new Error('Respuesta no es CSV (revisar permisos de la hoja)');
-  return text;
+function ingest(rows, fields, periodo, comercial, fileTag){
+  const { records, map } = rowsToRecords(rows, fields, periodo, comercial);
+  RECORDS = RECORDS.filter(r => !(r.__file===fileTag && r.comercial===comercial && r.periodo===periodo));
+  RECORDS.push(...records.map(r=>({...r, __file:fileTag})));
+  statusState[statusKey(periodo, comercial)] = { rows: records.length, missing: labelMissing(map), fields, map };
+  return { n: records.length, map, fields };
 }
 
-async function loadAll(){
-  RECORDS = RECORDS.filter(r => r.__manual); // conserva lo subido manualmente
-  const tasks = [];
-  CONFIG.sources.forEach(src=>{
-    src.tabs.forEach(tab=>{
-      const key = statusKey(src.id, tab);
-      statusState[key] = 'loading';
-      tasks.push(
-        fetchTab(src.sheetId, tab)
-          .then(csv=>{
-            const parsed = Papa.parse(csv, {header:true, skipEmptyLines:true});
-            const recs = rowsToRecords(parsed.data, parsed.meta.fields||[], src.id, tab);
-            RECORDS.push(...recs);
-            statusState[key] = 'ok';
-          })
-          .catch(err=>{
-            statusState[key] = 'fail';
-            console.warn('Fallo cargando', key, err.message);
-          })
-      );
-    });
-  });
-  renderStatusBar();
-  await Promise.allSettled(tasks);
-  renderStatusBar();
-  document.getElementById('lastUpdate').textContent = new Date().toLocaleString('es-PE');
-  renderAll();
+function diagnosticHTML(map, fields){
+  const names = {numero:'Número', fecha:'Fecha', contesto:'Contestó', calidad:'Calidad', conversacion:'Conversación', llamarLuego:'Llamar luego', programa:'Programa', carrera:'Carrera', provincia:'Provincia', segmentoEdad:'Segmento edad', nota:'Nota'};
+  const rows = Object.entries(names).map(([k,label])=>{
+    const ok = !!map[k];
+    return `<span style="display:inline-block;margin:2px 6px 2px 0;padding:2px 7px;border-radius:6px;font-size:10.5px;font-family:var(--font-mono);background:${ok?'rgba(61,220,151,0.12)':'rgba(255,84,112,0.12)'};color:${ok?'#7FE8BE':'#FF97A6'}" title="${ok?map[k]:'no encontrado'}">${ok?'✓':'✗'} ${label}</span>`;
+  }).join('');
+  return `<div style="margin-top:4px;">${rows}</div>
+    <div style="font-size:10.5px;color:var(--text-faint);margin-top:3px;font-family:var(--font-mono);">Encabezados leídos: ${fields.join(' | ')}</div>`;
 }
 
 /* =========================================================
-   MANUAL CSV UPLOAD
+   CARGA DE ARCHIVOS (XLSX o CSV)
 ========================================================= */
 function setupUpload(dropId, inputId, listId, sourceId){
   const drop = document.getElementById(dropId);
@@ -561,43 +590,114 @@ function setupUpload(dropId, inputId, listId, sourceId){
 
   const src = CONFIG.sources.find(s=>s.id===sourceId);
 
+  function addFileRow(text){
+    const row = document.createElement('div');
+    row.className = 'file-row';
+    row.style.flexDirection = 'column';
+    row.style.alignItems = 'flex-start';
+    row.innerHTML = `<span>${text}</span>`;
+    list.appendChild(row);
+    return row;
+  }
+
   function handleFiles(files){
     [...files].forEach(file=>{
-      const guess = src.tabs.find(t => stripAccents(file.name).toUpperCase().includes(t)) || src.tabs[0];
-      const row = document.createElement('div');
-      row.className = 'file-row';
-      row.innerHTML = `<span>${file.name}</span>
-        <select>${src.tabs.map(t=>`<option ${t===guess?'selected':''}>${t}</option>`).join('')}</select>`;
-      list.appendChild(row);
-      const select = row.querySelector('select');
+      const ext = file.name.split('.').pop().toLowerCase();
+      if(ext==='xlsx' || ext==='xls'){
+        handleExcel(file);
+      } else {
+        handleCsv(file);
+      }
+    });
+  }
 
-      Papa.parse(file, {
-        header:true, skipEmptyLines:true,
-        complete: res=>{
-          const apply = ()=>{
-            RECORDS = RECORDS.filter(r => !(r.__manual && r.__file===file.name));
-            const recs = rowsToRecords(res.data, res.meta.fields||[], sourceId, select.value)
-              .map(r=>({...r, __manual:true, __file:file.name}));
-            RECORDS.push(...recs);
-            const key = statusKey(sourceId, select.value);
-            statusState[key] = 'ok';
-            renderStatusBar();
-            renderAll();
-          };
-          select.addEventListener('change', apply);
-          apply();
-        }
-      });
+  function handleExcel(file){
+    const row = addFileRow(`⏳ Leyendo ${file.name}…`);
+    const reader = new FileReader();
+    reader.onload = e=>{
+      try{
+        const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array', cellDates:true});
+        const resumen = [];
+        let diagHtml = '';
+        wb.SheetNames.forEach(sheetName=>{
+          const upper = stripAccents(sheetName).toUpperCase().trim();
+          const comercial = src.tabs.includes(upper) ? upper : null;
+          if(!comercial) return; // ignora pestañas que no sean de un comercial conocido
+          const json = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], {defval:'', raw:false});
+          if(json.length===0){ resumen.push(`${comercial}: 0 filas`); return; }
+          const fields = Object.keys(json[0]);
+          const { n, map } = ingest(json, fields, sourceId, comercial, file.name);
+          resumen.push(`${comercial}: ${n} filas`);
+          diagHtml += `<div style="margin-top:8px;font-size:11.5px;font-weight:600;">${comercial}</div>` + diagnosticHTML(map, fields);
+        });
+        row.innerHTML = `<span>✅ ${file.name} — ${resumen.join(' · ') || 'no se encontraron pestañas con nombres de comerciales conocidos (revisa que las hojas se llamen NATALIA/ANGELA/NIRVANA/ROSEMARY)'}</span>${diagHtml}`;
+        renderStatusBar();
+        renderAll();
+      }catch(err){
+        row.innerHTML = `<span>❌ ${file.name}: ${err.message}</span>`;
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  function handleCsv(file){
+    const guess = src.tabs.find(t => stripAccents(file.name).toUpperCase().includes(t)) || src.tabs[0];
+    const row = addFileRow('');
+    row.innerHTML = `<div><span>${file.name}</span>
+      <select>${src.tabs.map(t=>`<option ${t===guess?'selected':''}>${t}</option>`).join('')}</select></div>`;
+    const select = row.querySelector('select');
+
+    Papa.parse(file, {
+      header:true, skipEmptyLines:true,
+      delimitersToGuess: [',',';','\t','|'],
+      transformHeader: h=>h.trim(),
+      complete: res=>{
+        const apply = ()=>{
+          const { n, map, fields } = ingest(res.data, res.meta.fields||[], sourceId, select.value, file.name);
+          let diag = row.querySelector('.diag');
+          if(!diag){ diag = document.createElement('div'); diag.className='diag'; row.appendChild(diag); }
+          diag.innerHTML = `<span style="font-size:11px;color:var(--text-dim)">${n} filas leídas</span>` + diagnosticHTML(map, fields);
+          renderStatusBar();
+          renderAll();
+        };
+        select.addEventListener('change', apply);
+        apply();
+      }
     });
   }
 }
 
+
 /* =========================================================
-   AGGREGATION
+   FILTRO GLOBAL (afecta a todas las secciones)
 ========================================================= */
-function filterByPeriodo(periodo){
-  if(periodo==='all') return RECORDS;
-  return RECORDS.filter(r=>r.periodo===periodo);
+let GLOBAL_FILTER = { periodo: 'campana', comercial: 'TODOS' };
+
+// Rango de la "campaña" para el filtro de periodo = ventana de GAC Julio (mayo–julio)
+const CAMPANA_START = new Date(CONFIG.campaigns[0].start);
+const CAMPANA_END = new Date(CONFIG.campaigns[0].end);
+
+function getFilteredRecords(opts){
+  opts = opts || {};
+  const periodo = opts.periodo !== undefined ? opts.periodo : GLOBAL_FILTER.periodo;
+  const comercial = opts.comercial !== undefined ? opts.comercial : GLOBAL_FILTER.comercial;
+  let recs = RECORDS;
+  if(periodo === 'campana'){
+    recs = recs.filter(r => r.fecha && r.fecha >= CAMPANA_START && r.fecha <= CAMPANA_END);
+  } else if(periodo === 'historico'){
+    recs = recs.filter(r => r.fecha && r.fecha < CAMPANA_START);
+  }
+  // periodo === 'all' -> sin filtro de fecha
+  if(comercial && comercial !== 'TODOS'){
+    recs = recs.filter(r => r.comercial === comercial);
+  }
+  return recs;
+}
+
+function filterLabel(){
+  const per = {campana:'Campaña GAC (may–jul 2026)', historico:'Histórico (antes de mayo 2026)', all:'Todo el periodo disponible'}[GLOBAL_FILTER.periodo];
+  const com = GLOBAL_FILTER.comercial === 'TODOS' ? 'todas las comerciales' : GLOBAL_FILTER.comercial;
+  return `Mostrando: ${per} · ${com}`;
 }
 
 function withinRange(fecha, start, end){
@@ -612,6 +712,7 @@ function renderCampaigns(){
   const grid = document.getElementById('campaignGrid');
   grid.innerHTML = '';
   const today = new Date('2026-07-13');
+  const filtered = getFilteredRecords();
 
   CONFIG.campaigns.forEach(camp=>{
     const start = new Date(camp.start), end = new Date(camp.end);
@@ -624,8 +725,8 @@ function renderCampaigns(){
     const ritmoActual = elapsed>0 ? (camp.inscritos/elapsed) : 0;
     const enRiesgo = ritmoNecesario > ritmoActual*1.15;
 
-    // llamadas dentro de la ventana de campaña (todas las comerciales, dataset actual)
-    const llamadasVentana = RECORDS.filter(r => r.periodo==='actual' && withinRange(r.fecha, camp.start, camp.end));
+    // llamadas dentro de la ventana de ESTA campaña específica, respetando el filtro de comercial activo
+    const llamadasVentana = filtered.filter(r => withinRange(r.fecha, camp.start, camp.end));
     const calientesVentana = llamadasVentana.filter(r=>r.calidad==='CALIENTE').length;
 
     const card = document.createElement('div');
@@ -642,6 +743,7 @@ function renderCampaigns(){
       </div>
       <div class="${enRiesgo?'pace-warning':'pace-ok'}">
         ${enRiesgo
+
           ? `⚠️ Al ritmo actual no se alcanza la meta. Se necesita ${ritmoNecesario.toFixed(1)} inscritos/día, hoy va a ${ritmoActual.toFixed(1)}/día.`
           : `✓ El ritmo actual está alineado con la meta.`}
       </div>
@@ -654,9 +756,9 @@ function renderCampaigns(){
 /* =========================================================
    RENDER: KPI STRIP
 ========================================================= */
-let currentKpiPeriodo = 'actual';
 function renderKpis(){
-  const data = filterByPeriodo(currentKpiPeriodo);
+  const data = getFilteredRecords();
+  document.getElementById('kpiFilterLabel').textContent = filterLabel();
   const total = data.length;
   const contestaron = data.filter(r=>r.contesto===true).length;
   const conConversacion = data.filter(r=>r.conversacion===true).length;
@@ -683,8 +785,10 @@ let charts = {};
 function destroyChart(id){ if(charts[id]){ charts[id].destroy(); delete charts[id]; } }
 
 function renderFunnel(){
-  const actual = filterByPeriodo('actual');
-  const hist = filterByPeriodo('historico');
+  const actual = getFilteredRecords();
+  // comparación: mismo comercial, el periodo "opuesto" al seleccionado (para ver si es temporada)
+  const compPeriodo = GLOBAL_FILTER.periodo === 'historico' ? 'campana' : (GLOBAL_FILTER.periodo === 'campana' ? 'historico' : null);
+  const hist = compPeriodo ? getFilteredRecords({periodo:compPeriodo}) : [];
 
   function stagesOf(data){
     const total = data.length;
@@ -727,26 +831,28 @@ function renderFunnel(){
   // Insights
   const insights = [];
   const sh = stagesOf(hist);
+  const compLabel = GLOBAL_FILTER.periodo === 'historico' ? 'la campaña GAC' : 'el histórico';
   const ctA = pct(s.contestaron,s.total), ctH = pct(sh.contestaron,sh.total);
   const cvA = pct(s.conversacion,s.contestaron), cvH = pct(sh.conversacion,sh.contestaron);
   const calA = pct(actual.filter(r=>r.calidad==='CALIENTE'||r.calidad==='TIBIO').length, s.contestaron);
   const calH = pct(hist.filter(r=>r.calidad==='CALIENTE'||r.calidad==='TIBIO').length, sh.contestaron);
 
-  if(s.total>0) insights.push(`La tasa de contestación actual es <b>${fmtPct(ctA)}</b>${sh.total>0?` frente a <b>${fmtPct(ctH)}</b> del histórico`:''}.`);
-  if(s.contestaron>0) insights.push(`De quienes contestan, solo <b>${fmtPct(cvA)}</b> generan una conversación real${sh.contestaron>0?` (histórico: <b>${fmtPct(cvH)}</b>)`:''}.`);
-  if(s.contestaron>0) insights.push(`De los que contestan, <b>${fmtPct(calA)}</b> terminan como lead tibio o caliente${sh.contestaron>0?` vs <b>${fmtPct(calH)}</b> en el histórico`:''}.`);
+  if(s.total>0) insights.push(`La tasa de contestación en este filtro es <b>${fmtPct(ctA)}</b>${sh.total>0?` frente a <b>${fmtPct(ctH)}</b> en ${compLabel}`:''}.`);
+  if(s.contestaron>0) insights.push(`De quienes contestan, solo <b>${fmtPct(cvA)}</b> generan una conversación real${sh.contestaron>0?` (${compLabel}: <b>${fmtPct(cvH)}</b>)`:''}.`);
+  if(s.contestaron>0) insights.push(`De los que contestan, <b>${fmtPct(calA)}</b> terminan como lead tibio o caliente${sh.contestaron>0?` vs <b>${fmtPct(calH)}</b> en ${compLabel}`:''}.`);
 
-  // top comercial by conversion
+  // comparación entre comerciales (siempre calculada sobre el periodo filtrado, todas las comerciales)
+  const dataTodas = getFilteredRecords({comercial:'TODOS'});
   const byComercial = {};
-  actual.forEach(r=>{
+  dataTodas.forEach(r=>{
     byComercial[r.comercial] = byComercial[r.comercial] || {total:0, cont:0, conv:0};
     byComercial[r.comercial].total++;
     if(r.contesto) byComercial[r.comercial].cont++;
     if(r.conversacion) byComercial[r.comercial].conv++;
   });
   const ranked = Object.entries(byComercial).map(([name,v])=>({name, tasa:pct(v.conv,v.cont)})).filter(r=>!isNaN(r.tasa)).sort((a,b)=>b.tasa-a.tasa);
-  if(ranked.length){
-    insights.push(`<b>${ranked[0].name}</b> tiene la mejor tasa de conversación (${fmtPct(ranked[0].tasa)})${ranked.length>1?`, mientras <b>${ranked[ranked.length-1].name}</b> la más baja (${fmtPct(ranked[ranked.length-1].tasa)})`:''}.`);
+  if(ranked.length>1){
+    insights.push(`Entre comerciales, <b>${ranked[0].name}</b> tiene la mejor tasa de conversación (${fmtPct(ranked[0].tasa)}) y <b>${ranked[ranked.length-1].name}</b> la más baja (${fmtPct(ranked[ranked.length-1].tasa)}) — la brecha entre comerciales es de <b>${fmtPct(ranked[0].tasa-ranked[ranked.length-1].tasa)}</b> puntos.`);
   }
 
   // reincidencia insight
@@ -763,7 +869,10 @@ function renderFunnel(){
    RENDER: POR COMERCIAL
 ========================================================= */
 function renderPorComercial(){
-  const data = filterByPeriodo('actual');
+  // Esta sección siempre compara TODAS las comerciales (respetando el periodo elegido)
+  // para poder responder "¿es temporada o es la comercial?" — si se filtró una sola
+  // comercial, se resalta esa barra.
+  const data = getFilteredRecords({comercial:'TODOS'});
   const byComercial = {};
   data.forEach(r=>{
     byComercial[r.comercial] = byComercial[r.comercial] || {total:0, cont:0, conv:0};
@@ -798,7 +907,7 @@ function renderPorComercial(){
    RENDER: CALIDAD DE LEAD
 ========================================================= */
 function renderCalidad(){
-  const data = filterByPeriodo('actual').filter(r=>r.contesto===true);
+  const data = getFilteredRecords().filter(r=>r.contesto===true);
   const counts = {CALIENTE:0, TIBIO:0, FRIO:0};
   data.forEach(r=>{ if(r.calidad) counts[r.calidad]++; });
   destroyChart('calidad');
@@ -834,7 +943,7 @@ function topN(data, field, n=10){
   return Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,n);
 }
 function renderProgramasCarreras(){
-  const data = filterByPeriodo('actual');
+  const data = getFilteredRecords();
   const progs = topN(data,'programa',8);
   const carreras = topN(data,'carrera',10);
 
@@ -857,7 +966,10 @@ function renderProgramasCarreras(){
    RENDER: REINCIDENCIA
 ========================================================= */
 function renderReincidencia(){
-  const data = filterByPeriodo('all').filter(r=>r.numero);
+  // La reincidencia respeta el filtro de comercial, pero siempre mira TODO el rango de fechas
+  // disponible (para poder ver el efecto de insistir a través del tiempo), salvo que el
+  // usuario haya elegido explícitamente un periodo.
+  const data = getFilteredRecords().filter(r=>r.numero);
   const byPhone = {};
   data.forEach(r=>{
     byPhone[r.numero] = byPhone[r.numero] || {count:0, bestCalidad:null};
@@ -899,7 +1011,7 @@ function renderReincidencia(){
    RENDER: SEGMENTACION
 ========================================================= */
 function renderSegmentacion(){
-  const data = filterByPeriodo('actual');
+  const data = getFilteredRecords();
   function boolChart(canvasId, field, labelYes, labelNo, chartKey){
     const yes = data.filter(r=>r[field]===true).length;
     const no = data.filter(r=>r[field]===false).length;
@@ -919,7 +1031,9 @@ function renderSegmentacion(){
    RENDER: TENDENCIA MENSUAL
 ========================================================= */
 function renderTendencia(){
-  const data = RECORDS.filter(r=>r.fecha);
+  // Siempre muestra todo el rango de fechas disponible (para ver la tendencia real),
+  // pero sí respeta el filtro de comercial activo.
+  const data = getFilteredRecords({periodo:'all'}).filter(r=>r.fecha);
   const byMonth = {};
   data.forEach(r=>{
     const mk = monthKey(r.fecha);
@@ -974,14 +1088,18 @@ function renderAll(){
 /* =========================================================
    INIT
 ========================================================= */
-document.querySelectorAll('.toggle-group[data-toggle="kpi"] button').forEach(btn=>{
-  btn.addEventListener('click', ()=>{
-    document.querySelectorAll('.toggle-group[data-toggle="kpi"] button').forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active');
-    currentKpiPeriodo = btn.dataset.val;
-    renderKpis();
+function wireToggleGroup(containerId, onChange){
+  const container = document.getElementById(containerId);
+  container.querySelectorAll('button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      container.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      onChange(btn.dataset.val);
+    });
   });
-});
+}
+wireToggleGroup('filterPeriodo', val=>{ GLOBAL_FILTER.periodo = val; renderAll(); });
+wireToggleGroup('filterComercial', val=>{ GLOBAL_FILTER.comercial = val; renderAll(); });
 
 setupUpload('dropActual','fileActual','filesActual','actual');
 setupUpload('dropHistorico','fileHistorico','filesHistorico','historico');
@@ -989,18 +1107,18 @@ setupUpload('dropHistorico','fileHistorico','filesHistorico','historico');
 renderStatusBar();
 
 function boot(){
-  if(typeof Chart === 'undefined' || typeof Papa === 'undefined'){
+  if(typeof Chart === 'undefined' || typeof Papa === 'undefined' || typeof XLSX === 'undefined'){
     document.getElementById('statusBar').insertAdjacentHTML('beforeend',
-      '<div class="status-chip fail"><span class="led"></span>No se pudieron cargar las librerías (Chart.js/PapaParse). Revisa tu conexión o un bloqueador de scripts.</div>');
+      '<div class="status-chip fail"><span class="led"></span>No se pudieron cargar las librerías necesarias (Chart.js / PapaParse / XLSX). Revisa tu conexión o un bloqueador de scripts.</div>');
     return;
   }
-  loadAll();
+  renderAll(); // estado vacío inicial, a la espera de archivos
 }
-if(typeof Chart !== 'undefined' && typeof Papa !== 'undefined'){
+if(typeof Chart !== 'undefined' && typeof Papa !== 'undefined' && typeof XLSX !== 'undefined'){
   boot();
 } else {
   window.addEventListener('libsready', boot, {once:true});
-  setTimeout(()=>{ if(typeof Chart !== 'undefined' && typeof Papa !== 'undefined') boot(); }, 3000);
+  setTimeout(()=>{ if(typeof Chart !== 'undefined' && typeof Papa !== 'undefined' && typeof XLSX !== 'undefined') boot(); }, 3000);
 }
 </script>
 </body>
