@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Panel de llamadas · GAC / GTD Julio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+  :root{
+    --bg:#0F1419;
+    --bg-elevated:#151B23;
+    --surface:#1B222C;
+    --surface-2:#212936;
+    --border:#2A323D;
+    --text:#EDEFF2;
+    --text-dim:#909AA8;
+    --text-faint:#5C6675;
+    --caliente:#FF6B4A;
+    --tibio:#F2B84B;
+    --frio:#4A9EFF;
+    --positive:#3DDC97;
+    --negative:#FF5470;
+    --gac:#FF6B4A;
+    --gtd:#4A9EFF;
+    --radius:14px;
+    --font-display:'Space Grotesk', sans-serif;
+    --font-body:'Inter', sans-serif;
+    --font-mono:'JetBrains Mono', monospace;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:
+      radial-gradient(circle at 8px 8px, rgba(255,255,255,0.035) 1.4px, transparent 1.4px) 0 0/26px 26px,
+      var(--bg);
+    color:var(--text);
+    font-family:var(--font-body);
+    line-height:1.5;
+    padding-bottom:80px;
+  }
+  a{color:inherit;}
+  .wrap{max-width:1180px; margin:0 auto; padding:0 24px;}
+  ::selection{background:var(--caliente); color:#0F1419;}
+
+  /* ---------- header ---------- */
+  header.top{
+    border-bottom:1px solid var(--border);
+    padding:28px 0 24px;
+    background:linear-gradient(180deg, rgba(255,107,74,0.06), transparent);
+  }
+  .eyebrow{
+    font-family:var(--font-mono);
+    font-size:11.5px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--caliente);
+    display:flex; align-items:center; gap:8px;
+  }
+  .eyebrow .dot{width:6px; height:6px; border-radius:50%; background:var(--caliente); box-shadow:0 0 0 3px rgba(255,107,74,0.18);}
+  h1{
+    font-family:var(--font-display);
+    font-weight:700;
+    font-size:clamp(24px,3.4vw,34px);
+    letter-spacing:-0.01em;
+    margin-top:8px;
+  }
+  header.top p.sub{color:var(--text-dim); margin-top:6px; font-size:14.5px; max-width:640px;}
+  .status-bar{
+    display:flex; flex-wrap:wrap; gap:8px; margin-top:18px;
+  }
+  .status-chip{
+    font-family:var(--font-mono); font-size:11.5px;
+    border:1px solid var(--border); border-radius:20px;
+    padding:5px 12px; display:flex; align-items:center; gap:6px;
+    background:var(--surface); color:var(--text-dim);
+  }
+  .status-chip .led{width:7px;height:7px;border-radius:50%; background:var(--text-faint);}
+  .status-chip.ok .led{background:var(--positive); box-shadow:0 0 6px var(--positive);}
+  .status-chip.fail .led{background:var(--negative); box-shadow:0 0 6px var(--negative);}
+  .status-chip.loading .led{background:var(--tibio); animation:pulse 1s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+  button.retry{
+    font-family:var(--font-mono); font-size:11.5px; color:var(--bg);
+    background:var(--text); border:none; border-radius:20px; padding:5px 14px;
+    cursor:pointer; font-weight:600;
+  }
+  button.retry:hover{background:var(--caliente); color:#fff;}
+
+  /* ---------- sections ---------- */
+  section{padding:42px 0;}
+  section.tight{padding:24px 0;}
+  .section-head{margin-bottom:22px; display:flex; justify-content:space-between; align-items:flex-end; gap:16px; flex-wrap:wrap;}
+  .section-head h2{
+    font-family:var(--font-display); font-size:20px; font-weight:600;
+  }
+  .section-head .num{font-family:var(--font-mono); color:var(--text-faint); font-size:12px; margin-right:8px;}
+  .section-head p{color:var(--text-dim); font-size:13.5px; max-width:520px;}
+  .toggle-group{display:flex; gap:4px; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:3px;}
+  .toggle-group button{
+    font-family:var(--font-mono); font-size:11.5px; padding:6px 12px; border-radius:7px; border:none;
+    background:transparent; color:var(--text-dim); cursor:pointer;
+  }
+  .toggle-group button.active{background:var(--caliente); color:#fff;}
+
+  /* ---------- hero campaigns ---------- */
+  .campaign-grid{display:grid; grid-template-columns:1fr 1fr; gap:18px;}
+  @media(max-width:760px){.campaign-grid{grid-template-columns:1fr;}}
+  .campaign-card{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    padding:24px; position:relative; overflow:hidden;
+  }
+  .campaign-card::before{
+    content:''; position:absolute; top:0; left:0; width:4px; height:100%;
+  }
+  .campaign-card.gac::before{background:var(--gac);}
+  .campaign-card.gtd::before{background:var(--gtd);}
+  .campaign-card .cname{font-family:var(--font-display); font-size:19px; font-weight:600;}
+  .campaign-card .cdates{font-family:var(--font-mono); font-size:11.5px; color:var(--text-faint); margin-top:3px;}
+  .campaign-card .bignum{
+    font-family:var(--font-mono); font-weight:700; font-size:42px; margin-top:18px; line-height:1;
+  }
+  .campaign-card .bignum small{font-family:var(--font-body); font-weight:500; font-size:14px; color:var(--text-dim);}
+  .progress-track{height:8px; border-radius:6px; background:var(--surface-2); margin-top:14px; overflow:hidden;}
+  .progress-fill{height:100%; border-radius:6px;}
+  .campaign-card.gac .progress-fill{background:var(--gac);}
+  .campaign-card.gtd .progress-fill{background:var(--gtd);}
+  .campaign-meta{display:flex; justify-content:space-between; margin-top:14px; font-size:12.5px; color:var(--text-dim);}
+  .campaign-meta b{color:var(--text); font-family:var(--font-mono);}
+  .pace-warning{
+    margin-top:14px; font-size:12.5px; padding:10px 12px; border-radius:9px;
+    background:rgba(255,84,112,0.09); border:1px solid rgba(255,84,112,0.25); color:#FF97A6;
+  }
+  .pace-ok{background:rgba(61,220,151,0.09); border:1px solid rgba(61,220,151,0.25); color:#7FE8BE;}
+
+  /* ---------- KPI strip ---------- */
+  .kpi-strip{display:grid; grid-template-columns:repeat(5,1fr); gap:14px;}
+  @media(max-width:900px){.kpi-strip{grid-template-columns:repeat(2,1fr);}}
+  .kpi{
+    background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px 16px 14px;
+  }
+  .kpi .label{font-size:11.5px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.05em;}
+  .kpi .value{font-family:var(--font-mono); font-size:26px; font-weight:700; margin-top:6px;}
+  .kpi .delta{font-size:11.5px; margin-top:4px; font-family:var(--font-mono);}
+  .delta.up{color:var(--positive);}
+  .delta.down{color:var(--negative);}
+
+  /* ---------- funnel (signature element) ---------- */
+  .funnel-wrap{display:grid; grid-template-columns:1.3fr 1fr; gap:24px;}
+  @media(max-width:900px){.funnel-wrap{grid-template-columns:1fr;}}
+  .funnel{display:flex; flex-direction:column; gap:2px;}
+  .funnel-stage{position:relative; padding:16px 20px; display:flex; justify-content:space-between; align-items:center;}
+  .funnel-stage .fname{font-size:13.5px; font-weight:600;}
+  .funnel-stage .fsub{font-family:var(--font-mono); font-size:11px; color:rgba(15,20,25,0.6); margin-top:2px;}
+  .funnel-stage .fval{font-family:var(--font-mono); font-weight:700; font-size:20px;}
+  .funnel-drop{
+    font-family:var(--font-mono); font-size:11px; color:var(--text-faint); text-align:right; padding:3px 20px 3px 0;
+  }
+  .insight-card{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:20px;
+  }
+  .insight-card h3{font-family:var(--font-display); font-size:15px; margin-bottom:12px;}
+  .insight-card ul{list-style:none; display:flex; flex-direction:column; gap:11px;}
+  .insight-card li{font-size:13px; color:var(--text-dim); padding-left:16px; position:relative;}
+  .insight-card li::before{content:'→'; position:absolute; left:0; color:var(--caliente);}
+  .insight-card li b{color:var(--text); font-family:var(--font-mono); font-weight:600;}
+
+  /* ---------- generic panel / chart card ---------- */
+  .panel{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:20px;}
+  .grid-2{display:grid; grid-template-columns:1fr 1fr; gap:18px;}
+  .grid-3{display:grid; grid-template-columns:repeat(3,1fr); gap:14px;}
+  @media(max-width:900px){.grid-2,.grid-3{grid-template-columns:1fr;}}
+  canvas{max-height:320px;}
+  .chart-tall canvas{max-height:420px;}
+
+  table{width:100%; border-collapse:collapse; font-size:12.5px;}
+  th,td{text-align:left; padding:9px 10px; border-bottom:1px solid var(--border);}
+  th{color:var(--text-faint); font-weight:600; text-transform:uppercase; font-size:10.5px; letter-spacing:.05em;}
+  td{font-family:var(--font-mono); color:var(--text-dim);}
+  td.name{font-family:var(--font-body); color:var(--text); font-weight:500;}
+  tr:last-child td{border-bottom:none;}
+  .pill{display:inline-block; padding:2px 8px; border-radius:20px; font-size:11px; font-weight:600;}
+  .pill.CALIENTE{background:rgba(255,107,74,0.15); color:var(--caliente);}
+  .pill.TIBIO{background:rgba(242,184,75,0.15); color:var(--tibio);}
+  .pill.FRIO{background:rgba(74,158,255,0.15); color:var(--frio);}
+
+  /* ---------- upload ---------- */
+  .upload-zone{
+    border:1.5px dashed var(--border); border-radius:12px; padding:18px; text-align:center;
+    font-size:12.5px; color:var(--text-dim); cursor:pointer; transition:border-color .15s;
+  }
+  .upload-zone:hover{border-color:var(--caliente); color:var(--text);}
+  .upload-zone input{display:none;}
+  .file-row{display:flex; justify-content:space-between; align-items:center; font-size:12px; padding:8px 0; border-bottom:1px solid var(--border); gap:10px;}
+  .file-row select{background:var(--surface-2); color:var(--text); border:1px solid var(--border); border-radius:6px; padding:4px 6px; font-size:11.5px; font-family:var(--font-mono);}
+
+  footer{text-align:center; color:var(--text-faint); font-size:12px; padding:40px 0 10px; font-family:var(--font-mono);}
+  .note{font-size:12px; color:var(--text-faint); margin-top:10px; line-height:1.6;}
+  .empty-msg{color:var(--text-faint); font-size:13px; padding:30px; text-align:center;}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="eyebrow"><span class="dot"></span>Panel de campañas de admisión</div>
+    <h1>Comparativa de llamadas: GAC Julio vs GTD Julio</h1>
+    <p class="sub">Datos en vivo desde las hojas de cálculo de comerciales (Natalia, Ángela, Nirvana, Rosemary) — periodo activo Jun–Jul 2026 comparado contra el histórico desde diciembre 2025.</p>
+    <div class="status-bar" id="statusBar"></div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- 1. CAMPAIGN HERO -->
+  <section>
+    <div class="section-head">
+      <div><span class="num">01</span><h2 style="display:inline">Avance hacia la meta</h2>
+        <p>Progreso de inscritos frente a la meta de cada campaña activa, con el ritmo diario necesario para llegar a tiempo.</p></div>
+    </div>
+    <div class="campaign-grid" id="campaignGrid"></div>
+  </section>
+
+  <!-- 2. KPI STRIP -->
+  <section class="tight">
+    <div class="section-head">
+      <div><span class="num">02</span><h2 style="display:inline">Indicadores generales</h2></div>
+      <div class="toggle-group" data-toggle="kpi">
+        <button data-val="actual" class="active">Jun–Jul 2026</button>
+        <button data-val="historico">Histórico</button>
+        <button data-val="all">Todo</button>
+      </div>
+    </div>
+    <div class="kpi-strip" id="kpiStrip"></div>
+  </section>
+
+  <!-- 3. FUNNEL -->
+  <section>
+    <div class="section-head">
+      <div><span class="num">03</span><h2 style="display:inline">Embudo de conversión</h2>
+        <p>De cada 100 marcaciones, cuántas llegan a ser un lead calificado (tibio o caliente). Aquí suele esconderse la razón de una meta baja.</p></div>
+    </div>
+    <div class="funnel-wrap">
+      <div class="panel"><div class="funnel" id="funnel"></div></div>
+      <div class="insight-card">
+        <h3>Lectura automática de los datos</h3>
+        <ul id="insightsList"></ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. POR COMERCIAL -->
+  <section>
+    <div class="section-head">
+      <div><span class="num">04</span><h2 style="display:inline">Desempeño por comercial</h2>
+        <p>Volumen de llamadas, tasa de contestación y tasa de conversación por cada comercial.</p></div>
+    </div>
+    <div class="panel chart-tall"><canvas id="chartComercial"></canvas></div>
+  </section>
+
+  <!-- 5. CALIDAD DE LEAD -->
+  <section>
+    <div class="section-head">
+      <div><span class="num">05</span><h2 style="display:inline">Calidad de lead</h2>
+        <p>De quienes contestaron, cómo se distribuye la temperatura del lead — global y por comercial.</p></div>
+    </div>
+    <div class="grid-2">
+      <div class="panel"><canvas id="chartCalidad"></canvas></div>
+      <div class="panel" style="overflow-x:auto"><table id="tablaCalidadComercial"></table></div>
+    </div>
+  </section>
+
+  <!-- 6. CARRERAS / PROGRAMAS -->
+  <section>
+    <div class="section-head">
+      <div><span class="num">06</span><h2 style="display:inline">Programas y carreras de interés</h2>
+        <p>Qué se está pidiendo más — útil para enfocar el discurso comercial y detectar si hay desalineación con la oferta.</p></div>
+    </div>
+    <div class="grid-2">
+      <div class="panel"><canvas id="chartProgramas"></canvas></div>
+      <div class="panel"><canvas id="chartCarreras"></canvas></div>
+    </div>
+  </section>
+
+  <!-- 7. REINCIDENCIA -->
+  <section>
+    <div class="section-head">
+      <div><span class="num">07</span><h2 style="display:inline">Reincidencia de llamadas</h2>
+        <p>Cuántas veces se suele marcar el mismo número y si insistir realmente mejora la temperatura del lead.</p></div>
+    </div>
+    <div class="grid-2">
+      <div class="panel"><canvas id="chartReincidencia"></canvas></div>
+      <div class="panel"><canvas id="chartReincidenciaCalidad"></canvas></div>
+    </div>
+  </section>
+
+  <!-- 8. SEGMENTACION -->
+  <section>
+    <div class="section-head">
+      <div><span class="num">08</span><h2 style="display:inline">Provincia y segmento de edad</h2>
+        <p>Qué proporción del universo de leads cae dentro del perfil ideal (edad y ubicación).</p></div>
+    </div>
+    <div class="grid-3">
+      <div class="panel"><canvas id="chartProvincia"></canvas></div>
+      <div class="panel"><canvas id="chartEdad"></canvas></div>
+      <div class="panel"><canvas id="chartLlamarLuego"></canvas></div>
+    </div>
+  </section>
+
+  <!-- 9. TENDENCIA HISTORICA -->
+  <section>
+    <div class="section-head">
+      <div><span class="num">09</span><h2 style="display:inline">Tendencia mensual (histórico vs actual)</h2>
+        <p>Volumen de llamadas y % de conversación mes a mes, desde diciembre 2025.</p></div>
+    </div>
+    <div class="panel chart-tall"><canvas id="chartTendencia"></canvas></div>
+  </section>
+
+  <!-- 10. MANUAL UPLOAD FALLBACK -->
+  <section class="tight">
+    <div class="section-head">
+      <div><span class="num">10</span><h2 style="display:inline">Carga manual (respaldo)</h2>
+        <p>Si alguna pestaña no cargó automáticamente por permisos, sube aquí el CSV exportado de esa hoja.</p></div>
+    </div>
+    <div class="grid-2">
+      <div>
+        <div class="upload-zone" id="dropActual">📄 Arrastra o haz clic para subir CSV — Jun–Jul 2026<input type="file" id="fileActual" multiple accept=".csv"></div>
+        <div id="filesActual"></div>
+      </div>
+      <div>
+        <div class="upload-zone" id="dropHistorico">📄 Arrastra o haz clic para subir CSV — Histórico Dic 2025+<input type="file" id="fileHistorico" multiple accept=".csv"></div>
+        <div id="filesHistorico"></div>
+      </div>
+    </div>
+    <p class="note">Tip: en Google Sheets ve a cada pestaña (Natalia, Ángela, Nirvana, Rosemary) y usa Archivo → Descargar → CSV. El nombre del comercial se detecta automáticamente si aparece en el nombre del archivo; si no, podrás asignarlo manualmente.</p>
+  </section>
+
+</main>
+
+<footer>Generado a partir de datos en vivo de Google Sheets · Última actualización: <span id="lastUpdate">—</span></footer>
+
+<script>
+/* =========================================================
+   CONFIG
+========================================================= */
+const CONFIG = {
+  sources: [
+    { id:'actual',     label:'Jun–Jul 2026', sheetId:'1XMPLj2qKxTFquS5Ld1kd42b5t-0-0S-e3FRMnBQOVI', tabs:['NATALIA','ANGELA','NIRVANA','ROSEMARY'] },
+    { id:'historico',  label:'Histórico Dic 2025+', sheetId:'1pSbWV01iDuP5yTj-1IU-ee6u_LVImYDlbthJPl1qOY0', tabs:['NATALIA','ANGELA','ROSEMARY'] }
+  ],
+  campaigns: [
+    { name:'GAC Julio', start:'2026-05-25', end:'2026-07-17', inscritos:20, meta:57, cls:'gac' },
+    { name:'GTD Julio', start:'2026-06-20', end:'2026-08-01', inscritos:7,  meta:72, cls:'gtd' }
+  ]
+};
+
+const COLORS = {
+  caliente:'#FF6B4A', tibio:'#F2B84B', frio:'#4A9EFF',
+  positive:'#3DDC97', negative:'#FF5470',
+  text:'#EDEFF2', dim:'#909AA8', faint:'#5C6675', border:'#2A323D',
+  gac:'#FF6B4A', gtd:'#4A9EFF'
+};
+
+Chart.defaults.font.family = "'Inter', sans-serif";
+Chart.defaults.color = COLORS.dim;
+Chart.defaults.borderColor = COLORS.border;
+
+let RECORDS = []; // unified dataset
+const statusState = {}; // key -> 'loading'|'ok'|'fail'
+
+/* =========================================================
+   HELPERS
+========================================================= */
+function stripAccents(s){ return String(s).normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+
+function findKey(fields, ...kws){
+  const norm = fields.map(f => ({raw:f, n:stripAccents(f).toLowerCase()}));
+  const hit = norm.find(f => kws.every(kw => f.n.includes(kw)));
+  return hit ? hit.raw : null;
+}
+
+function buildColMap(fields){
+  return {
+    numero:       findKey(fields,'numero') || findKey(fields,'telefono'),
+    fecha:        findKey(fields,'fecha'),
+    contesto:     findKey(fields,'contest'),
+    calidad:      findKey(fields,'calidad'),
+    conversacion: findKey(fields,'conversac'),
+    llamarLuego:  findKey(fields,'llamar') || findKey(fields,'luego'),
+    programa:     findKey(fields,'programa'),
+    carrera:      findKey(fields,'carrera'),
+    provincia:    findKey(fields,'provincia'),
+    segmentoEdad: findKey(fields,'segmento') || findKey(fields,'edad'),
+    nota:         findKey(fields,'nota')
+  };
+}
+
+function normBool(v){
+  if(v===undefined || v===null) return null;
+  const s = stripAccents(String(v)).trim().toUpperCase();
+  if(['SI','TRUE','VERDADERO','X','1','YES'].includes(s)) return true;
+  if(['NO','FALSE','FALSO','0',''].includes(s)) return false;
+  return null;
+}
+function normCalidad(v){
+  const s = stripAccents(String(v||'')).trim().toUpperCase();
+  if(s.includes('CALIEN')) return 'CALIENTE';
+  if(s.includes('TIBIO')) return 'TIBIO';
+  if(s.includes('FRIO')) return 'FRIO';
+  return null;
+}
+function normPhone(v){
+  const d = String(v||'').replace(/\D/g,'');
+  return d.length>=6 ? d : null;
+}
+function parseFecha(v){
+  if(!v) return null;
+  const s = String(v).trim();
+  let m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+  if(m){
+    let [,d,mo,y]=m;
+    if(y.length===2) y = (+y<50?'20':'19')+y;
+    const dt = new Date(+y, +mo-1, +d);
+    return isNaN(dt) ? null : dt;
+  }
+  m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if(m){ const dt = new Date(+m[1], +m[2]-1, +m[3]); return isNaN(dt)?null:dt; }
+  const dt = new Date(s);
+  return isNaN(dt) ? null : dt;
+}
+function monthKey(d){ return d ? `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` : null; }
+function pct(n,d){ return d>0 ? (n/d*100) : 0; }
+function fmtPct(n){ return n.toFixed(1)+'%'; }
+
+/* =========================================================
+   PARSE ROWS -> RECORDS
+========================================================= */
+function rowsToRecords(rows, fields, periodo, comercial){
+  const map = buildColMap(fields);
+  const out = [];
+  for(const row of rows){
+    const numero = map.numero ? normPhone(row[map.numero]) : null;
+    const fecha = map.fecha ? parseFecha(row[map.fecha]) : null;
+    const nombreCol = Object.values(row).join('').trim();
+    if(!numero && !fecha && !nombreCol) continue; // fila vacía
+    out.push({
+      periodo, comercial,
+      numero,
+      fecha,
+      contesto: map.contesto ? normBool(row[map.contesto]) : null,
+      calidad: map.calidad ? normCalidad(row[map.calidad]) : null,
+      conversacion: map.conversacion ? normBool(row[map.conversacion]) : null,
+      llamarLuego: map.llamarLuego ? normBool(row[map.llamarLuego]) : null,
+      programa: map.programa ? String(row[map.programa]||'').trim() : '',
+      carrera: map.carrera ? String(row[map.carrera]||'').trim() : '',
+      provincia: map.provincia ? normBool(row[map.provincia]) : null,
+      segmentoEdad: map.segmentoEdad ? normBool(row[map.segmentoEdad]) : null,
+      nota: map.nota ? String(row[map.nota]||'').trim() : ''
+    });
+  }
+  return out;
+}
+
+/* =========================================================
+   FETCH FROM GOOGLE SHEETS
+========================================================= */
+function statusKey(sourceId, tab){ return sourceId+'::'+tab; }
+
+function renderStatusBar(){
+  const bar = document.getElementById('statusBar');
+  bar.innerHTML = '';
+  CONFIG.sources.forEach(src=>{
+    src.tabs.forEach(tab=>{
+      const key = statusKey(src.id, tab);
+      const st = statusState[key] || 'loading';
+      const chip = document.createElement('div');
+      chip.className = 'status-chip ' + st;
+      chip.innerHTML = `<span class="led"></span>${tab} · ${src.id==='actual'?'Jun-Jul':'Hist'}`;
+      bar.appendChild(chip);
+    });
+  });
+  const retry = document.createElement('button');
+  retry.className = 'retry';
+  retry.textContent = '↻ Reintentar carga';
+  retry.onclick = loadAll;
+  bar.appendChild(retry);
+}
+
+async function fetchTab(sheetId, tab){
+  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tab)}`;
+  const res = await fetch(url, {cache:'no-store'});
+  if(!res.ok) throw new Error('HTTP '+res.status);
+  const text = await res.text();
+  if(/^\s*<(!doctype|html)/i.test(text)) throw new Error('Respuesta no es CSV (revisar permisos de la hoja)');
+  return text;
+}
+
+async function loadAll(){
+  RECORDS = RECORDS.filter(r => r.__manual); // conserva lo subido manualmente
+  const tasks = [];
+  CONFIG.sources.forEach(src=>{
+    src.tabs.forEach(tab=>{
+      const key = statusKey(src.id, tab);
+      statusState[key] = 'loading';
+      tasks.push(
+        fetchTab(src.sheetId, tab)
+          .then(csv=>{
+            const parsed = Papa.parse(csv, {header:true, skipEmptyLines:true});
+            const recs = rowsToRecords(parsed.data, parsed.meta.fields||[], src.id, tab);
+            RECORDS.push(...recs);
+            statusState[key] = 'ok';
+          })
+          .catch(err=>{
+            statusState[key] = 'fail';
+            console.warn('Fallo cargando', key, err.message);
+          })
+      );
+    });
+  });
+  renderStatusBar();
+  await Promise.allSettled(tasks);
+  renderStatusBar();
+  document.getElementById('lastUpdate').textContent = new Date().toLocaleString('es-PE');
+  renderAll();
+}
+
+/* =========================================================
+   MANUAL CSV UPLOAD
+========================================================= */
+function setupUpload(dropId, inputId, listId, sourceId){
+  const drop = document.getElementById(dropId);
+  const input = document.getElementById(inputId);
+  const list = document.getElementById(listId);
+  drop.addEventListener('click', ()=>input.click());
+  drop.addEventListener('dragover', e=>{e.preventDefault(); drop.style.borderColor='var(--caliente)';});
+  drop.addEventListener('dragleave', ()=>{drop.style.borderColor='var(--border)';});
+  drop.addEventListener('drop', e=>{
+    e.preventDefault(); drop.style.borderColor='var(--border)';
+    handleFiles(e.dataTransfer.files);
+  });
+  input.addEventListener('change', ()=>handleFiles(input.files));
+
+  const src = CONFIG.sources.find(s=>s.id===sourceId);
+
+  function handleFiles(files){
+    [...files].forEach(file=>{
+      const guess = src.tabs.find(t => stripAccents(file.name).toUpperCase().includes(t)) || src.tabs[0];
+      const row = document.createElement('div');
+      row.className = 'file-row';
+      row.innerHTML = `<span>${file.name}</span>
+        <select>${src.tabs.map(t=>`<option ${t===guess?'selected':''}>${t}</option>`).join('')}</select>`;
+      list.appendChild(row);
+      const select = row.querySelector('select');
+
+      Papa.parse(file, {
+        header:true, skipEmptyLines:true,
+        complete: res=>{
+          const apply = ()=>{
+            RECORDS = RECORDS.filter(r => !(r.__manual && r.__file===file.name));
+            const recs = rowsToRecords(res.data, res.meta.fields||[], sourceId, select.value)
+              .map(r=>({...r, __manual:true, __file:file.name}));
+            RECORDS.push(...recs);
+            const key = statusKey(sourceId, select.value);
+            statusState[key] = 'ok';
+            renderStatusBar();
+            renderAll();
+          };
+          select.addEventListener('change', apply);
+          apply();
+        }
+      });
+    });
+  }
+}
+
+/* =========================================================
+   AGGREGATION
+========================================================= */
+function filterByPeriodo(periodo){
+  if(periodo==='all') return RECORDS;
+  return RECORDS.filter(r=>r.periodo===periodo);
+}
+
+function withinRange(fecha, start, end){
+  if(!fecha) return false;
+  return fecha >= new Date(start) && fecha <= new Date(end);
+}
+
+/* =========================================================
+   RENDER: CAMPAIGN HERO
+========================================================= */
+function renderCampaigns(){
+  const grid = document.getElementById('campaignGrid');
+  grid.innerHTML = '';
+  const today = new Date('2026-07-13');
+
+  CONFIG.campaigns.forEach(camp=>{
+    const start = new Date(camp.start), end = new Date(camp.end);
+    const totalDays = Math.max(1, Math.round((end-start)/86400000));
+    const elapsed = Math.min(totalDays, Math.max(0, Math.round((today-start)/86400000)));
+    const remaining = Math.max(0, Math.round((end-today)/86400000));
+    const avance = pct(camp.inscritos, camp.meta);
+    const faltan = Math.max(0, camp.meta - camp.inscritos);
+    const ritmoNecesario = remaining>0 ? (faltan/remaining) : faltan;
+    const ritmoActual = elapsed>0 ? (camp.inscritos/elapsed) : 0;
+    const enRiesgo = ritmoNecesario > ritmoActual*1.15;
+
+    // llamadas dentro de la ventana de campaña (todas las comerciales, dataset actual)
+    const llamadasVentana = RECORDS.filter(r => r.periodo==='actual' && withinRange(r.fecha, camp.start, camp.end));
+    const calientesVentana = llamadasVentana.filter(r=>r.calidad==='CALIENTE').length;
+
+    const card = document.createElement('div');
+    card.className = 'campaign-card '+camp.cls;
+    card.innerHTML = `
+      <div class="cname">${camp.name}</div>
+      <div class="cdates">${start.toLocaleDateString('es-PE')} → ${end.toLocaleDateString('es-PE')} · ${remaining} días restantes</div>
+      <div class="bignum">${camp.inscritos}<small> / ${camp.meta} inscritos</small></div>
+      <div class="progress-track"><div class="progress-fill" style="width:${Math.min(100,avance)}%; background:${camp.cls==='gac'?COLORS.gac:COLORS.gtd}"></div></div>
+      <div class="campaign-meta">
+        <span>Avance: <b>${fmtPct(avance)}</b></span>
+        <span>Ritmo actual: <b>${ritmoActual.toFixed(2)}/día</b></span>
+        <span>Necesario: <b>${ritmoNecesario.toFixed(2)}/día</b></span>
+      </div>
+      <div class="${enRiesgo?'pace-warning':'pace-ok'}">
+        ${enRiesgo
+          ? `⚠️ Al ritmo actual no se alcanza la meta. Se necesita ${ritmoNecesario.toFixed(1)} inscritos/día, hoy va a ${ritmoActual.toFixed(1)}/día.`
+          : `✓ El ritmo actual está alineado con la meta.`}
+      </div>
+      <div class="note">En la ventana de esta campaña se registraron <b style="font-family:var(--font-mono)">${llamadasVentana.length}</b> llamadas y <b style="font-family:var(--font-mono)">${calientesVentana}</b> leads calientes (todas las comerciales combinadas, por fecha de llamada).</div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+/* =========================================================
+   RENDER: KPI STRIP
+========================================================= */
+let currentKpiPeriodo = 'actual';
+function renderKpis(){
+  const data = filterByPeriodo(currentKpiPeriodo);
+  const total = data.length;
+  const contestaron = data.filter(r=>r.contesto===true).length;
+  const conConversacion = data.filter(r=>r.conversacion===true).length;
+  const calientes = data.filter(r=>r.calidad==='CALIENTE').length;
+  const tibios = data.filter(r=>r.calidad==='TIBIO').length;
+  const numerosUnicos = new Set(data.map(r=>r.numero).filter(Boolean)).size;
+
+  const kpis = [
+    {label:'Llamadas totales', value: total.toLocaleString('es-PE')},
+    {label:'% Contestó', value: fmtPct(pct(contestaron,total))},
+    {label:'% Con conversación', value: fmtPct(pct(conConversacion,contestaron))},
+    {label:'Leads calientes+tibios', value: (calientes+tibios).toLocaleString('es-PE')},
+    {label:'Números únicos marcados', value: numerosUnicos.toLocaleString('es-PE')}
+  ];
+  document.getElementById('kpiStrip').innerHTML = kpis.map(k=>`
+    <div class="kpi"><div class="label">${k.label}</div><div class="value">${k.value}</div></div>
+  `).join('');
+}
+
+/* =========================================================
+   RENDER: FUNNEL + INSIGHTS
+========================================================= */
+let charts = {};
+function destroyChart(id){ if(charts[id]){ charts[id].destroy(); delete charts[id]; } }
+
+function renderFunnel(){
+  const actual = filterByPeriodo('actual');
+  const hist = filterByPeriodo('historico');
+
+  function stagesOf(data){
+    const total = data.length;
+    const contestaron = data.filter(r=>r.contesto===true).length;
+    const conversacion = data.filter(r=>r.conversacion===true).length;
+    const calificados = data.filter(r=>r.calidad==='CALIENTE'||r.calidad==='TIBIO').length;
+    return {total, contestaron, conversacion, calificados};
+  }
+  const s = stagesOf(actual);
+  const stages = [
+    {name:'Llamadas realizadas', val:s.total, color:'#2A323D', text:COLORS.text},
+    {name:'Contestaron', val:s.contestaron, color:'#3A4759', text:COLORS.text},
+    {name:'Hubo conversación', val:s.conversacion, color:COLORS.frio, text:'#0F1419'},
+    {name:'Lead tibio o caliente', val:s.calificados, color:COLORS.caliente, text:'#0F1419'}
+  ];
+  const max = stages[0].val || 1;
+  const funnel = document.getElementById('funnel');
+  funnel.innerHTML = '';
+  stages.forEach((st,i)=>{
+    const widthPct = 30 + (st.val/max)*70;
+    const wrap = document.createElement('div');
+    wrap.style.display='flex'; wrap.style.flexDirection='column'; wrap.style.alignItems='center';
+    wrap.innerHTML = `
+      <div class="funnel-stage" style="width:${widthPct}%; background:${st.color}; color:${st.text}; border-radius:8px;">
+        <div><div class="fname">${st.name}</div><div class="fsub">${fmtPct(pct(st.val,max))} del total</div></div>
+        <div class="fval">${st.val.toLocaleString('es-PE')}</div>
+      </div>`;
+    funnel.appendChild(wrap);
+    if(i<stages.length-1){
+      const next = stages[i+1];
+      const dropRate = st.val>0 ? 100-pct(next.val, st.val) : 0;
+      const drop = document.createElement('div');
+      drop.className = 'funnel-drop';
+      drop.style.width = widthPct+'%';
+      drop.textContent = `↓ se pierde ${fmtPct(dropRate)}`;
+      funnel.appendChild(drop);
+    }
+  });
+
+  // Insights
+  const insights = [];
+  const sh = stagesOf(hist);
+  const ctA = pct(s.contestaron,s.total), ctH = pct(sh.contestaron,sh.total);
+  const cvA = pct(s.conversacion,s.contestaron), cvH = pct(sh.conversacion,sh.contestaron);
+  const calA = pct(actual.filter(r=>r.calidad==='CALIENTE'||r.calidad==='TIBIO').length, s.contestaron);
+  const calH = pct(hist.filter(r=>r.calidad==='CALIENTE'||r.calidad==='TIBIO').length, sh.contestaron);
+
+  if(s.total>0) insights.push(`La tasa de contestación actual es <b>${fmtPct(ctA)}</b>${sh.total>0?` frente a <b>${fmtPct(ctH)}</b> del histórico`:''}.`);
+  if(s.contestaron>0) insights.push(`De quienes contestan, solo <b>${fmtPct(cvA)}</b> generan una conversación real${sh.contestaron>0?` (histórico: <b>${fmtPct(cvH)}</b>)`:''}.`);
+  if(s.contestaron>0) insights.push(`De los que contestan, <b>${fmtPct(calA)}</b> terminan como lead tibio o caliente${sh.contestaron>0?` vs <b>${fmtPct(calH)}</b> en el histórico`:''}.`);
+
+  // top comercial by conversion
+  const byComercial = {};
+  actual.forEach(r=>{
+    byComercial[r.comercial] = byComercial[r.comercial] || {total:0, cont:0, conv:0};
+    byComercial[r.comercial].total++;
+    if(r.contesto) byComercial[r.comercial].cont++;
+    if(r.conversacion) byComercial[r.comercial].conv++;
+  });
+  const ranked = Object.entries(byComercial).map(([name,v])=>({name, tasa:pct(v.conv,v.cont)})).filter(r=>!isNaN(r.tasa)).sort((a,b)=>b.tasa-a.tasa);
+  if(ranked.length){
+    insights.push(`<b>${ranked[0].name}</b> tiene la mejor tasa de conversación (${fmtPct(ranked[0].tasa)})${ranked.length>1?`, mientras <b>${ranked[ranked.length-1].name}</b> la más baja (${fmtPct(ranked[ranked.length-1].tasa)})`:''}.`);
+  }
+
+  // reincidencia insight
+  const counts = {};
+  actual.forEach(r=>{ if(r.numero) counts[r.numero] = (counts[r.numero]||0)+1; });
+  const multi = Object.keys(counts).filter(n=>counts[n]>1).length;
+  const totalUnicos = Object.keys(counts).length;
+  if(totalUnicos>0) insights.push(`<b>${fmtPct(pct(multi,totalUnicos))}</b> de los números se llamaron más de una vez.`);
+
+  document.getElementById('insightsList').innerHTML = insights.map(i=>`<li>${i}</li>`).join('') || '<li>Aún no hay suficientes datos cargados para generar lecturas.</li>';
+}
+
+/* =========================================================
+   RENDER: POR COMERCIAL
+========================================================= */
+function renderPorComercial(){
+  const data = filterByPeriodo('actual');
+  const byComercial = {};
+  data.forEach(r=>{
+    byComercial[r.comercial] = byComercial[r.comercial] || {total:0, cont:0, conv:0};
+    byComercial[r.comercial].total++;
+    if(r.contesto) byComercial[r.comercial].cont++;
+    if(r.conversacion) byComercial[r.comercial].conv++;
+  });
+  const labels = Object.keys(byComercial);
+  destroyChart('comercial');
+  charts.comercial = new Chart(document.getElementById('chartComercial'), {
+    type:'bar',
+    data:{
+      labels,
+      datasets:[
+        {label:'Llamadas', data:labels.map(l=>byComercial[l].total), backgroundColor:'#3A4759', yAxisID:'y'},
+        {label:'% Contestó', data:labels.map(l=>pct(byComercial[l].cont,byComercial[l].total)), backgroundColor:COLORS.frio, yAxisID:'y1'},
+        {label:'% Conversación', data:labels.map(l=>pct(byComercial[l].conv,byComercial[l].cont)), backgroundColor:COLORS.caliente, yAxisID:'y1'}
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      scales:{
+        y:{position:'left', grid:{color:COLORS.border}, title:{display:true,text:'Llamadas'}},
+        y1:{position:'right', grid:{display:false}, min:0, max:100, title:{display:true,text:'%'}}
+      },
+      plugins:{legend:{position:'bottom'}}
+    }
+  });
+}
+
+/* =========================================================
+   RENDER: CALIDAD DE LEAD
+========================================================= */
+function renderCalidad(){
+  const data = filterByPeriodo('actual').filter(r=>r.contesto===true);
+  const counts = {CALIENTE:0, TIBIO:0, FRIO:0};
+  data.forEach(r=>{ if(r.calidad) counts[r.calidad]++; });
+  destroyChart('calidad');
+  charts.calidad = new Chart(document.getElementById('chartCalidad'), {
+    type:'doughnut',
+    data:{labels:['Caliente','Tibio','Frío'], datasets:[{data:[counts.CALIENTE,counts.TIBIO,counts.FRIO], backgroundColor:[COLORS.caliente,COLORS.tibio,COLORS.frio], borderWidth:0}]},
+    options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'bottom'}}}
+  });
+
+  const byComercial = {};
+  data.forEach(r=>{
+    byComercial[r.comercial] = byComercial[r.comercial] || {CALIENTE:0,TIBIO:0,FRIO:0,total:0};
+    if(r.calidad) byComercial[r.comercial][r.calidad]++;
+    byComercial[r.comercial].total++;
+  });
+  const rows = Object.entries(byComercial).map(([name,v])=>`
+    <tr><td class="name">${name}</td>
+    <td><span class="pill CALIENTE">${v.CALIENTE}</span></td>
+    <td><span class="pill TIBIO">${v.TIBIO}</span></td>
+    <td><span class="pill FRIO">${v.FRIO}</span></td>
+    <td>${fmtPct(pct(v.CALIENTE+v.TIBIO, v.total))}</td></tr>`).join('');
+  document.getElementById('tablaCalidadComercial').innerHTML = `
+    <thead><tr><th>Comercial</th><th>Caliente</th><th>Tibio</th><th>Frío</th><th>% Calificado</th></tr></thead>
+    <tbody>${rows || '<tr><td colspan="5" class="empty-msg">Sin datos</td></tr>'}</tbody>`;
+}
+
+/* =========================================================
+   RENDER: PROGRAMAS / CARRERAS
+========================================================= */
+function topN(data, field, n=10){
+  const counts = {};
+  data.forEach(r=>{ const v = (r[field]||'').trim(); if(v) counts[v]=(counts[v]||0)+1; });
+  return Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,n);
+}
+function renderProgramasCarreras(){
+  const data = filterByPeriodo('actual');
+  const progs = topN(data,'programa',8);
+  const carreras = topN(data,'carrera',10);
+
+  destroyChart('programas');
+  charts.programas = new Chart(document.getElementById('chartProgramas'), {
+    type:'bar',
+    data:{labels:progs.map(p=>p[0]), datasets:[{label:'Leads', data:progs.map(p=>p[1]), backgroundColor:COLORS.frio}]},
+    options:{indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, title:{display:true,text:'Top programas de interés'}}}
+  });
+
+  destroyChart('carreras');
+  charts.carreras = new Chart(document.getElementById('chartCarreras'), {
+    type:'bar',
+    data:{labels:carreras.map(p=>p[0]), datasets:[{label:'Leads', data:carreras.map(p=>p[1]), backgroundColor:COLORS.caliente}]},
+    options:{indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, title:{display:true,text:'Top carreras de interés'}}}
+  });
+}
+
+/* =========================================================
+   RENDER: REINCIDENCIA
+========================================================= */
+function renderReincidencia(){
+  const data = filterByPeriodo('all').filter(r=>r.numero);
+  const byPhone = {};
+  data.forEach(r=>{
+    byPhone[r.numero] = byPhone[r.numero] || {count:0, bestCalidad:null};
+    byPhone[r.numero].count++;
+    const rank = {CALIENTE:3,TIBIO:2,FRIO:1};
+    if(r.calidad && (!byPhone[r.numero].bestCalidad || rank[r.calidad]>rank[byPhone[r.numero].bestCalidad])){
+      byPhone[r.numero].bestCalidad = r.calidad;
+    }
+  });
+  const buckets = {'1 vez':0, '2 veces':0, '3 veces':0, '4+ veces':0};
+  Object.values(byPhone).forEach(p=>{
+    if(p.count===1) buckets['1 vez']++;
+    else if(p.count===2) buckets['2 veces']++;
+    else if(p.count===3) buckets['3 veces']++;
+    else buckets['4+ veces']++;
+  });
+  destroyChart('reincidencia');
+  charts.reincidencia = new Chart(document.getElementById('chartReincidencia'), {
+    type:'bar',
+    data:{labels:Object.keys(buckets), datasets:[{label:'Números', data:Object.values(buckets), backgroundColor:'#3A4759'}]},
+    options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, title:{display:true,text:'Distribución de veces marcado por número'}}}
+  });
+
+  const bucketKeys = [1,2,3,4];
+  const califByBucket = bucketKeys.map(k=>{
+    const phones = Object.values(byPhone).filter(p => k<4 ? p.count===k : p.count>=4);
+    const calif = phones.filter(p=>p.bestCalidad==='CALIENTE'||p.bestCalidad==='TIBIO').length;
+    return pct(calif, phones.length);
+  });
+  destroyChart('reincidenciaCalidad');
+  charts.reincidenciaCalidad = new Chart(document.getElementById('chartReincidenciaCalidad'), {
+    type:'line',
+    data:{labels:['1 vez','2 veces','3 veces','4+ veces'], datasets:[{label:'% que llega a tibio/caliente', data:califByBucket, borderColor:COLORS.caliente, backgroundColor:'rgba(255,107,74,0.15)', fill:true, tension:.3}]},
+    options:{responsive:true, maintainAspectRatio:false, scales:{y:{min:0,max:100}}, plugins:{title:{display:true,text:'¿Insistir mejora la calidad del lead?'}}}
+  });
+}
+
+/* =========================================================
+   RENDER: SEGMENTACION
+========================================================= */
+function renderSegmentacion(){
+  const data = filterByPeriodo('actual');
+  function boolChart(canvasId, field, labelYes, labelNo, chartKey){
+    const yes = data.filter(r=>r[field]===true).length;
+    const no = data.filter(r=>r[field]===false).length;
+    destroyChart(chartKey);
+    charts[chartKey] = new Chart(document.getElementById(canvasId), {
+      type:'doughnut',
+      data:{labels:[labelYes,labelNo], datasets:[{data:[yes,no], backgroundColor:[COLORS.positive, COLORS.faint], borderWidth:0}]},
+      options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'bottom'}}}
+    });
+  }
+  boolChart('chartProvincia','provincia','De provincia','No provincia','provincia');
+  boolChart('chartEdad','segmentoEdad','En segmento','Fuera de segmento','edad');
+  boolChart('chartLlamarLuego','llamarLuego','Llamar luego','No requiere','llamarLuego');
+}
+
+/* =========================================================
+   RENDER: TENDENCIA MENSUAL
+========================================================= */
+function renderTendencia(){
+  const data = RECORDS.filter(r=>r.fecha);
+  const byMonth = {};
+  data.forEach(r=>{
+    const mk = monthKey(r.fecha);
+    if(!mk) return;
+    byMonth[mk] = byMonth[mk] || {total:0, conv:0, cont:0};
+    byMonth[mk].total++;
+    if(r.contesto) byMonth[mk].cont++;
+    if(r.conversacion) byMonth[mk].conv++;
+  });
+  const months = Object.keys(byMonth).sort();
+  destroyChart('tendencia');
+  charts.tendencia = new Chart(document.getElementById('chartTendencia'), {
+    data:{
+      labels:months,
+      datasets:[
+        {type:'bar', label:'Llamadas', data:months.map(m=>byMonth[m].total), backgroundColor:'#3A4759', yAxisID:'y'},
+        {type:'line', label:'% Conversación', data:months.map(m=>pct(byMonth[m].conv, byMonth[m].cont)), borderColor:COLORS.caliente, backgroundColor:COLORS.caliente, yAxisID:'y1', tension:.3}
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      scales:{y:{position:'left', title:{display:true,text:'Llamadas'}}, y1:{position:'right', min:0, max:100, grid:{display:false}, title:{display:true,text:'% Conversación'}}},
+      plugins:{legend:{position:'bottom'}}
+    }
+  });
+}
+
+/* =========================================================
+   MASTER RENDER
+========================================================= */
+function renderAll(){
+  const hasData = RECORDS.length > 0;
+  renderCampaigns();
+  renderKpis();
+  renderFunnel();
+  renderPorComercial();
+  renderCalidad();
+  renderProgramasCarreras();
+  renderReincidencia();
+  renderSegmentacion();
+  renderTendencia();
+  if(!hasData){
+    document.querySelectorAll('canvas').forEach(c=>{
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = COLORS.faint;
+      ctx.font = '13px Inter';
+      ctx.fillText('Esperando datos… revisa el estado de carga arriba o sube un CSV', 10, 20);
+    });
+  }
+}
+
+/* =========================================================
+   INIT
+========================================================= */
+document.querySelectorAll('.toggle-group[data-toggle="kpi"] button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.toggle-group[data-toggle="kpi"] button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    currentKpiPeriodo = btn.dataset.val;
+    renderKpis();
+  });
+});
+
+setupUpload('dropActual','fileActual','filesActual','actual');
+setupUpload('dropHistorico','fileHistorico','filesHistorico','historico');
+
+renderStatusBar();
+loadAll();
+</script>
+</body>
+</html>
