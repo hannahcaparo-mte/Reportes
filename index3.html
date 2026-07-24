@@ -554,7 +554,7 @@
         <label for="matricula">Costo de la Matrícula</label>
         <div class="prefix-wrap">
           <span>S/</span>
-          <input type="number" id="matricula" value="150" min="0">
+          <input type="number" id="matricula" value="160" min="0">
         </div>
       </div>
 
@@ -564,6 +564,17 @@
           <span>S/</span>
           <input type="number" id="mensualidad" value="570" min="0">
         </div>
+      </div>
+
+      <div class="toggle-row" style="border-top:1px dashed var(--line); margin-top:4px;">
+        <div>
+          <div class="name">Visita técnica</div>
+          <div class="price">Valor S/ 65 · no aplica descuento</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="visitaToggle" checked>
+          <span class="slider"></span>
+        </label>
       </div>
 
       <div class="field">
@@ -630,6 +641,7 @@
               <div class="line-item"><span>Mensualidad</span><span class="v" id="rMensualidadUnit">S/ 570</span></div>
               <div class="line-item"><span>N.° de meses</span><span class="v" id="rMesesLabel">5</span></div>
               <div class="line-item"><span>Subtotal mensualidades</span><span class="v" id="rMensualidad">S/ 2,850</span></div>
+              <div class="line-item" id="rVisitaRow"><span>Visita técnica</span><span class="v" id="rVisita">S/ 65</span></div>
               <div class="total-row"><span class="l">Total</span><span class="v" id="rTotal">S/ 3,000</span></div>
             </div>
             <div class="cc-col beneficio">
@@ -638,6 +650,7 @@
               <div class="line-item"><span>Mensualidad</span><span class="v" id="dMensualidadUnit">S/ 456</span></div>
               <div class="line-item"><span>N.° de meses</span><span class="v" id="dMesesLabel">5</span></div>
               <div class="line-item"><span>Subtotal mensualidades</span><span class="v" id="dMensualidad">S/ 2,280</span></div>
+              <div class="line-item" id="dVisitaRow"><span>Visita técnica</span><span class="v" id="dVisita">S/ 65</span></div>
               <div class="total-row"><span class="l">Total</span><span class="v" id="dTotal">S/ 2,400</span></div>
             </div>
           </div>
@@ -705,13 +718,15 @@
     const desc = Math.max(0, Math.min(100, parseInt(el('descuento').value) || 0));
 
     const mensualidadTotal = mensualidad * months;
-    const totalRegular = matricula + mensualidadTotal;
+    const visitaOn = el('visitaToggle').checked;
+    const visitaVal = visitaOn ? 65 : 0; // visita técnica no lleva descuento
+    const totalRegular = matricula + mensualidadTotal + visitaVal;
 
     const factor = 1 - (desc/100);
     const matriculaDesc = matricula; // la matrícula no lleva descuento
     const mensualidadUnitDesc = mensualidad * factor;
     const mensualidadDescTotal = mensualidadTotal * factor;
-    const totalDesc = matriculaDesc + mensualidadDescTotal;
+    const totalDesc = matriculaDesc + mensualidadDescTotal + visitaVal;
     const ahorroDescuento = totalRegular - totalDesc;
 
     const excelOn = el('excelToggle').checked;
@@ -740,6 +755,12 @@
     el('dMensualidad').textContent = fmt(mensualidadDescTotal);
     el('dTotal').textContent = fmt(totalDesc);
 
+    // visita técnica (no aplica descuento en ninguna columna)
+    el('rVisita').textContent = fmt(visitaVal);
+    el('dVisita').textContent = fmt(visitaVal);
+    el('rVisitaRow').style.display = visitaOn ? 'flex' : 'none';
+    el('dVisitaRow').style.display = visitaOn ? 'flex' : 'none';
+
     // bonus block visibility
     el('bonusExcel').style.display = excelOn ? 'flex' : 'none';
     el('bonusPbi').style.display = pbiOn ? 'flex' : 'none';
@@ -750,7 +771,7 @@
     el('ccAhorro').textContent = fmt(ahorroTotal);
   }
 
-  ['programName','months','matricula','mensualidad','excelToggle','pbiToggle'].forEach(id=>{
+  ['programName','months','matricula','mensualidad','excelToggle','pbiToggle','visitaToggle'].forEach(id=>{
     el(id).addEventListener('input', recalc);
     el(id).addEventListener('change', recalc);
   });
